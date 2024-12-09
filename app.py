@@ -1,5 +1,5 @@
 from bottle import Bottle, run, request, template, auth_basic, HTTPResponse
-import bcrypt
+import bcrypt, sourcetypes
 
 app = Bottle()
 
@@ -15,12 +15,8 @@ def check_credentials(username, password):
         return bcrypt.checkpw(password.encode('utf-8'), users[username])
     return False
 
-@app.route('/')
-@auth_basic(check_credentials)
-def welcome():
-    """Velkomstside, som kræver login."""
-    username = request.auth[0]  # Hent brugernavnet fra auth
-    return template('''
+
+welcome_html: sourcetypes.html = """
         <!DOCTYPE html>
         <html>
         <head>
@@ -34,7 +30,14 @@ def welcome():
             </form>
         </body>
         </html>
-    ''', username=username)
+    """
+
+@app.route('/')
+@auth_basic(check_credentials)
+def welcome():
+    """Velkomstside, som kræver login."""
+    username = request.auth[0]  # Hent brugernavnet fra auth
+    return template(welcome_html, username=username)
 
 @app.route('/logout', method='POST')
 def logout():

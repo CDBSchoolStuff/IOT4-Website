@@ -13,11 +13,16 @@
 **Install dependencies:**
 `pip install -r requirements.txt`
 
+
+## Useful VSCode extensions
+[Python Inline Source Syntax Highlighting](https://github.com/samwillis/python-inline-source)
+
+
 ## Sources
 
 **Secure login using Bcrypt:**
 [[GeeksForGeeks: Password Hashing with Bcrypt in Flask]](https://www.geeksforgeeks.org/password-hashing-with-bcrypt-in-flask/)
 
-
 **auth_basic:**
-[[Stack Overflow: Basic auth authentication in Bottle]](https://stackoverflow.com/questions/52461587/basic-auth-authentication-in-bottle)
+[[Stack Overflow: Basic auth authentication in Bottle]](https://stackoverflow.com/questions/52461587/basic-auth-authentication-in-bottle), 
+[[Bottle]](https://dev.to/storvus/bottle-4e33)
