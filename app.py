@@ -13,6 +13,15 @@ import matplotlib.pyplot as plt
 import os
 
 ####################################################################################################
+# Configuration
+
+USE_HTTPS = False
+GENERATE_TEST_DATA = True
+
+
+HOST_ADDRESS = "localhost"
+
+####################################################################################################
 # Database
 
 try:
@@ -83,8 +92,6 @@ def generate_test_data(num_records):
         if "db" in locals():
             db.close()
 
-# Eksempel på brug: Generer 10 testdata (Udkommenter eller fjern ved endelig implementering)
-generate_test_data(10)
 
 
 
@@ -221,11 +228,15 @@ def logout():
 
 
 if __name__ == '__main__':
+    
+    if GENERATE_TEST_DATA:
+        # Eksempel på brug: Generer 10 testdata (Udkommenter eller fjern ved endelig implementering)
+        generate_test_data(20)
 
     # Tjekker om det nuværende operativ system er UNIX-lignende.
-    if os.name == "posix":
+    if USE_HTTPS and os.name == "posix":
          # Start serveren (kører lokalt på port 8080)
-        run(app, host='localhost', port=8080 , server='gunicorn'
+        run(app, host=HOST_ADDRESS, port=8080 , server='gunicorn'
             # , reloader=1 # Kun anvendt med 'gunicorn'
             # , keyfile='key.pem'
             # , certfile='cert.pem'
@@ -233,5 +244,5 @@ if __name__ == '__main__':
     
     else:
         # Start serveren (kører lokalt på port 8080)
-        run(app, host='localhost', port=8080, debug=True)
+        run(app, host=HOST_ADDRESS, port=8080, debug=True)
         
