@@ -2,6 +2,9 @@
 
 ![Bottle](https://bottlepy.org/docs/dev/_static/logo_nav.png)
 
+## Latest WIP screenshot
+
+![Screenshot](image/README/screenshot.png)
 
 ## Commands
 
@@ -17,7 +20,6 @@
 ## Useful VSCode extensions
 
 [Python Inline Source Syntax Highlighting](https://github.com/samwillis/python-inline-source)
-
 
 ## Sources
 
