@@ -9,6 +9,7 @@ import sqlite3
 import random, datetime, datetime, io, base64
 import matplotlib.pyplot as plt
 
+
 ####################################################################################################
 # Database
 
@@ -16,10 +17,10 @@ try:
     # Forbind til SQLite-databasen (vil oprette databasefilen, hvis den ikke findes)
     db = sqlite3.connect('sensordata.db')
 
-    # Opretter et cursor-objekt til at interagere med databasen
+    # Opret et cursor-objekt til at interagere med databasen
     cursor = db.cursor()
 
-    # Opretter et "table" til at gemme sensor data i
+    # Opret en tabel til at gemme sensor data i
     sql_table_creation: sourcetypes.sql = """
         CREATE TABLE IF NOT EXISTS SensorData (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,7 +33,7 @@ try:
     """
     cursor.execute(sql_table_creation)
 
-    # Gemmer ændringerne og lukker databasen
+    # Gem ændringerne og luk databasen
     db.commit()
 
     print("Database og tabel er oprettet succesfuldt!")
@@ -43,7 +44,6 @@ except Exception as ex:
 finally:
     # Kører altid efter try eller except, for at sikre at databasen bliver lukket.
     if "db" in locals(): db.close()
-
 
 
 
@@ -81,12 +81,14 @@ def generate_test_data(num_records):
         if "db" in locals():
             db.close()
 
-# Eksempel på brug: Generer 10 testdata
+# Eksempel på brug: Generer 10 testdata (Udkommenter eller fjern ved endelig implementering)
 generate_test_data(10)
+
 
 
 # Hjælpefunktion til at hente data fra databasen
 def fetch_sensor_data():
+    """Muliggør hentning af værdier fra sensordata databasen."""
     try:
         # Forbind til databasen
         db = sqlite3.connect('sensordata.db')
@@ -116,6 +118,48 @@ def fetch_sensor_data():
         print(f"Der opstår en fejl: {ex}")
         return [], [], [], [], []
 
+
+
+####################################################################################################
+# Graph Plotting
+
+def plot():
+    """Plotter sensordata og returnerer grafen som base64 kode."""
+
+    # Hent data fra databasen
+    timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
+
+    # Opret en figur og en aksel
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Plot data
+    ax.plot(timestamps, temperatures, label='Temperature (°C)', color='red')
+    ax.plot(timestamps, humidities, label='Humidity (%)', color='blue')
+    ax.plot(timestamps, loudness, label='Loudness (dB)', color='green')
+    ax.plot(timestamps, light_levels, label='Light Level (lux)', color='orange')
+
+    # Formater plot
+    ax.set_xlabel('Timestamp')
+    ax.set_ylabel('Sensorværdier')
+    ax.set_title('Sensor Data Visualisering')
+    ax.legend(loc='upper left')
+    ax.grid(True)
+    
+    # Drej x-aksens labels, så de er lettere at læse.
+    plt.xticks(rotation=45, ha="right")
+    
+    # Konverter plot til et PNG-billede i hukommelsen
+    img_buf = io.BytesIO()
+    plt.tight_layout()  # Juster layout
+    plt.savefig(img_buf, format='png')
+    img_buf.seek(0)
+
+    # Konverter PNG-billedet til base64 kodning for indlejring i HTML
+    img_base64 = base64.b64encode(img_buf.getvalue()).decode('utf-8')
+    img_buf.close()
+
+    # Returner billedets base64 kode
+    return img_base64
 
 
 
@@ -156,50 +200,11 @@ def welcome():
             <form action="/logout" method="post">
                 <button type="submit">Log ud</button>
             </form>
-            <div>{plot()}</div>
+            <img src="data:image/png;base64,{plot()}"/>
         </body>
         </html>
     """
     return template(welcome_html)
-
-
-@app.route('/plot')
-@auth_basic(check_credentials)
-def plot():
-    # Fetch data from the database
-    timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
-
-    # Create a figure and axis object
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    # Plot data
-    ax.plot(timestamps, temperatures, label='Temperature (°C)', color='red')
-    ax.plot(timestamps, humidities, label='Humidity (%)', color='blue')
-    ax.plot(timestamps, loudness, label='Loudness (dB)', color='green')
-    ax.plot(timestamps, light_levels, label='Light Level (lux)', color='orange')
-
-    # Format the plot
-    ax.set_xlabel('Timestamp')
-    ax.set_ylabel('Sensor Values')
-    ax.set_title('Sensor Data Visualization')
-    ax.legend(loc='upper left')
-    ax.grid(True)
-    
-    # Rotate the x-axis labels for better readability
-    plt.xticks(rotation=45, ha="right")
-    
-    # Convert plot to a PNG image in memory
-    img_buf = io.BytesIO()
-    plt.tight_layout()  # Adjust layout
-    plt.savefig(img_buf, format='png')
-    img_buf.seek(0)
-
-    # Convert the PNG image to base64 encoding for embedding in HTML
-    img_base64 = base64.b64encode(img_buf.getvalue()).decode('utf-8')
-    img_buf.close()
-
-    # Return the image as a data URI for embedding
-    return f'<img src="data:image/png;base64,{img_base64}"/>'
 
 
 @app.route('/logout', method='POST')
