@@ -2,6 +2,7 @@
 
 ![Bottle](https://bottlepy.org/docs/dev/_static/logo_nav.png)
 
+
 ## Commands
 
 **Create Virtual Environment:**
@@ -17,7 +18,6 @@
 
 [Python Inline Source Syntax Highlighting](https://github.com/samwillis/python-inline-source)
 
-https://marketplace.visualstudio.com/items?itemName=maptz.regionfolder
 
 ## Sources
 
