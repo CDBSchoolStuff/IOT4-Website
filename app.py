@@ -1,5 +1,45 @@
 from bottle import Bottle, run, request, template, auth_basic, HTTPResponse
-import bcrypt, sourcetypes
+import bcrypt, sourcetypes, sqlite3
+
+
+####################################################################################################
+# Database
+
+try:
+    # Connect to SQLite database (this will create the database file if it doesn't exist)
+    conn = sqlite3.connect('sensordata.db')
+
+    # Create a cursor object to interact with the database
+    cursor = conn.cursor()
+
+    # Create a table for storing sensor data
+    sql_table_creation: sourcetypes.sql = """
+        CREATE TABLE IF NOT EXISTS SensorData (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            temperature REAL,
+            humidity REAL,
+            loudness REAL,
+            light_level REAL
+        )
+    """
+    cursor.execute(sql_table_creation)
+
+    # Commit changes and close the connection
+    conn.commit()
+
+    # Optionally, close the connection after creating the table
+    conn.close()
+
+    print("Database and table created successfully!")
+except:
+    print("An error occurred when creating database and table!")
+
+
+
+
+####################################################################################################
+# Bottle
 
 app = Bottle()
 
