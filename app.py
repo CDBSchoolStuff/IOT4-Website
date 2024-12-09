@@ -9,6 +9,8 @@ import sqlite3
 import random, datetime, datetime, io, base64
 import matplotlib.pyplot as plt
 
+# General imports
+import os
 
 ####################################################################################################
 # Database
@@ -216,6 +218,20 @@ def logout():
     response.set_header('WWW-Authenticate', 'Basic realm="Login Required"')
     return response
 
+
+
 if __name__ == '__main__':
-    # Start serveren (kører lokalt på port 8080)
-    run(app, host='localhost', port=8080, debug=True)
+
+    # Tjekker om det nuværende operativ system er UNIX-lignende.
+    if os.name == "posix":
+         # Start serveren (kører lokalt på port 8080)
+        run(app, host='localhost', port=8080 , server='gunicorn'
+            # , reloader=1 # Kun anvendt med 'gunicorn'
+            # , keyfile='key.pem'
+            # , certfile='cert.pem'
+            )
+    
+    else:
+        # Start serveren (kører lokalt på port 8080)
+        run(app, host='localhost', port=8080, debug=True)
+        

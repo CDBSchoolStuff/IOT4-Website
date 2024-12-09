@@ -28,4 +28,17 @@
 [[Stack Overflow: Basic auth authentication in Bottle]](https://stackoverflow.com/questions/52461587/basic-auth-authentication-in-bottle),
 [[Bottle]](https://dev.to/storvus/bottle-4e33)
 
+
+**Database:**
 [Python SQLite](https://www.geeksforgeeks.org/python-sqlite/)
+
+**Graph plotting:**
+[Efficient Image Processing in Python: A Straightforward Guide to Base64 and Numpy Conversions](https://annacsmedeiros.medium.com/efficient-image-processing-in-python-a-straightforward-guide-to-base64-and-numpy-conversions-e9e3aac13312),
+
+[Matplotlib Pyplot](https://www.w3schools.com/python/matplotlib_pyplot.asp)
+
+
+**HTTPS/TLS:**
+https://bottlepy.org/docs/dev/deployment.html
+
+https://stackoverflow.com/questions/44013107/how-to-make-bottle-server-https-python
