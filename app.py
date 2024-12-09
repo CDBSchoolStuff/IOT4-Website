@@ -42,7 +42,8 @@ def welcome():
 @app.route('/logout', method='POST')
 def logout():
     """Log brugeren ud ved at sende en HTTP 401, så browseren glemmer credentials."""
-    # Send en 401 Unauthorized for at "tvinge" browseren til at glemme login-oplysningerne
+    # Send en 401 Unauthorized for at "tvinge" browseren til at glemme login-oplysningerne 
+    # (Dette sker først når browseren bliver lukket, hvilket er en kendt begrænsning af denne teknik)
     response = HTTPResponse(status=401)
     response.set_header('WWW-Authenticate', 'Basic realm="Login Required"')
     return response
