@@ -6,13 +6,13 @@ import bcrypt, sourcetypes, sqlite3
 # Database
 
 try:
-    # Connect to SQLite database (this will create the database file if it doesn't exist)
-    conn = sqlite3.connect('sensordata.db')
+    # Forbind til SQLite-databasen (vil oprette databasefilen, hvis den ikke findes)
+    db = sqlite3.connect('sensordata.db')
 
-    # Create a cursor object to interact with the database
-    cursor = conn.cursor()
+    # Opretter et cursor-objekt til at interagere med databasen
+    cursor = db.cursor()
 
-    # Create a table for storing sensor data
+    # Opretter et "table" til at gemme sensor data i
     sql_table_creation: sourcetypes.sql = """
         CREATE TABLE IF NOT EXISTS SensorData (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,15 +25,17 @@ try:
     """
     cursor.execute(sql_table_creation)
 
-    # Commit changes and close the connection
-    conn.commit()
+    # Gemmer ændringerne og lukker databasen
+    db.commit()
 
-    # Optionally, close the connection after creating the table
-    conn.close()
+    print("Database og tabel er oprettet succesfuldt!")
 
-    print("Database and table created successfully!")
-except:
-    print("An error occurred when creating database and table!")
+except Exception as ex:
+    print(ex)
+
+finally:
+    # Kører altid efter try eller except, for at sikre at databasen bliver lukket.
+    if "db" in locals(): db.close()
 
 
 
