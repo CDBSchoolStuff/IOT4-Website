@@ -39,6 +39,12 @@
 [Matplotlib Pyplot](https://www.w3schools.com/python/matplotlib_pyplot.asp)
 
 
-**HTTPS/TLS:**
+**Bottle HTTPS/TLS:**
 [Bottle Deployment](https://bottlepy.org/docs/dev/deployment.html),
 [How to make bottle server HTTPS python](https://stackoverflow.com/questions/44013107/how-to-make-bottle-server-https-python)
+
+**MQTT:**
+[A Beginner’s Guide to MQTT: Understanding MQTT, Mosquitto Broker, and Paho Python MQTT Client](https://medium.com/@potekh.anastasia/a-beginners-guide-to-mqtt-understanding-mqtt-mosquitto-broker-and-paho-python-mqtt-client-990822274923)
+
+**MQTT TLS:**
+[Stack Overflow: How to use ssl/tls in paho mqtt using python? I got certificate verify failed](https://stackoverflow.com/questions/51942821/how-to-use-ssl-tls-in-paho-mqtt-using-python-i-got-certificate-verify-failed)

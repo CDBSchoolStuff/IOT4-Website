@@ -18,8 +18,9 @@ import os
 USE_HTTPS = False
 GENERATE_TEST_DATA = True
 
-
 HOST_ADDRESS = "localhost"
+HOST_PORT = 8080
+
 
 ####################################################################################################
 # Database
@@ -235,8 +236,8 @@ if __name__ == '__main__':
 
     # Tjekker om det nuværende operativ system er UNIX-lignende.
     if USE_HTTPS and os.name == "posix":
-         # Start serveren (kører lokalt på port 8080)
-        run(app, host=HOST_ADDRESS, port=8080 , server='gunicorn'
+        # Start serveren (kører lokalt på port 8080)
+        run(app, host=HOST_ADDRESS, port=HOST_PORT , server='gunicorn'
             # , reloader=1 # Kun anvendt med 'gunicorn'
             # , keyfile='key.pem'
             # , certfile='cert.pem'
@@ -244,5 +245,5 @@ if __name__ == '__main__':
     
     else:
         # Start serveren (kører lokalt på port 8080)
-        run(app, host=HOST_ADDRESS, port=8080, debug=True)
+        run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True)
         
