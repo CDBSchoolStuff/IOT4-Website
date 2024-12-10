@@ -98,7 +98,7 @@ def generate_test_data(num_records):
 
 # Hjælpefunktion til at hente data fra databasen
 def fetch_sensor_data():
-    """Muliggør hentning af værdier fra sensordata databasen."""
+    """Muliggør hentning af værdier fra sensordata databasen og returneres som en tuple af lister."""
     try:
         # Forbind til databasen
         db = sqlite3.connect('sensordata.db')
@@ -133,45 +133,62 @@ def fetch_sensor_data():
 ####################################################################################################
 # Graph Plotting
 
-def plot():
-    """Plotter sensordata og returnerer grafen som base64 kode."""
+def plot(selected_metrics=None):
+    """
+    Plot specifikke sensordata og returner grafen som en base64-kodet streng.
 
-    # Hent data fra databasen
+    selected_metrics (dict): 
+    En dictionary hvor nøgler er navnene på de datapunkter, der skal plottes (fx 'Temperature', 'Humidity'), og værdierne er tuples med (data_values, label, color).
+   
+    Eksempel: 
+    {
+        "Temperature": (temperatures, "Temperature (°C)", "red"),
+        "Humidity": (humidities, "Humidity (%)", "blue"),
+    }
+    """
+    # Hent data fra databasen (her kan man evt. tilpasse til sin egen databasehentning)
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
 
-    # Opret en figur og en aksel
+    # Hvis der ikke er valgt nogle datapunkter, så vælger vi alle som standard
+    if selected_metrics is None:
+        selected_metrics = {
+            "Temperature": (temperatures, "Temperature (°C)", "red"),
+            "Humidity": (humidities, "Humidity (%)", "blue"),
+            "Loudness": (loudness, "Loudness (dB)", "green"),
+            "Light Level": (light_levels, "Light Level (lux)", "orange"),
+        }
+
+    # Opret en figur og en akse
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    # Plot data
-    ax.plot(timestamps, temperatures, label='Temperature (°C)', color='red')
-    ax.plot(timestamps, humidities, label='Humidity (%)', color='blue')
-    ax.plot(timestamps, loudness, label='Loudness (dB)', color='green')
-    ax.plot(timestamps, light_levels, label='Light Level (lux)', color='orange')
+    # Loop gennem valgte datapunkter og plot dem
+    for metric_name, (data, label, color) in selected_metrics.items():
+        ax.plot(timestamps, data, label=label, color=color)
 
-    # Formater plot
+    # Formater grafen lidt
     ax.set_xlabel('Timestamp')
     ax.set_ylabel('Sensorværdier')
     ax.set_title('Sensor Data Visualisering')
-    ax.legend(loc='upper left')
-    ax.grid(True)
-    
-    # Drej x-aksens labels, så de er lettere at læse.
+    ax.legend(loc='upper left')  # Tilføj en lille forklaring i hjørnet
+    ax.grid(True)  # Tænd for gitter, så det er nemmere at læse
+
+    # Drej x-aksens labels, så de ikke overlapper og er til at læse
     plt.xticks(rotation=45, ha="right")
     
-    # Konverter plot til et PNG-billede i hukommelsen
+    # Konverter grafen til et PNG-billede i hukommelsen
     img_buf = io.BytesIO()
-    plt.tight_layout()  # Juster layout
+    plt.tight_layout()  # Sørg for layoutet er pænt
     plt.savefig(img_buf, format='png')
     img_buf.seek(0)
 
-    # Konverter PNG-billedet til base64 kodning for indlejring i HTML
+    # Konverter PNG-billedet til base64, så det kan bruges i HTML
     img_base64 = base64.b64encode(img_buf.getvalue()).decode('utf-8')
     img_buf.close()
-
-    # Returner billedets base64 kode
+    
+    # Returner billedet som en base64-streng
     return img_base64
 
-
+    
 
 ####################################################################################################
 # Bottle
@@ -197,6 +214,7 @@ def welcome():
     """Velkomstside, som kræver login."""
 
     username = request.auth[0]  # Hent brugernavnet fra auth
+    base64_plot = plot()
 
     welcome_html: sourcetypes.html = f"""
         <!DOCTYPE html>
@@ -210,7 +228,7 @@ def welcome():
             <form action="/logout" method="post">
                 <button type="submit">Log ud</button>
             </form>
-            <img src="data:image/png;base64,{plot()}"/>
+            <img src="data:image/png;base64,{base64_plot}"/>
         </body>
         </html>
     """
