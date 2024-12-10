@@ -184,7 +184,7 @@ def plot(selected_metrics=None):
     # Konverter PNG-billedet til base64, så det kan bruges i HTML
     img_base64 = base64.b64encode(img_buf.getvalue()).decode('utf-8')
     img_buf.close()
-    
+
     # Returner billedet som en base64-streng
     return img_base64
 
@@ -208,31 +208,86 @@ def check_credentials(username, password):
     return False
 
 
+
+base_template: sourcetypes.html = """
+    <!DOCTYPE html>
+
+    <!--Bootstrap CDN-->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <html lang="da">
+    <head>
+        <!--<meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+        <title>{{title}}</title>
+        <!--<link rel="stylesheet" href="/static/styles.css">-->
+    </head>
+    <body>
+        <header>
+            <nav class="navbar navbar-expand-lg bg-body-tertiary">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="#">Smart Night</a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNavDropdown">
+                        <ul class="navbar-nav">
+                            <li class="nav-item">
+                                <a class="nav-link active" aria-current="page" href="">Home</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Sove Forhold
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="temperature">Temperatur</a></li>
+                                    <li><a class="dropdown-item" href="humidity">Luftfugtighed</a></li>
+                                    <li><a class="dropdown-item" href="light">Lys</a></li>
+                                    <li><a class="dropdown-item" href="noise">Støj</a></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </header>
+        <main>
+            <br>
+            {{! content }}
+        </main>
+        <footer>
+            <br>
+            <p>&copy; 2024 IOT4 Project - Smart Night</p>
+        </footer>
+    </body>
+    </html>
+"""
+
+# Function to "inherit" base template
+def render_page(content, title):
+    """Combine the base template with page-specific content."""
+    return template(base_template, title=title, content=content)
+
+
+
+
+
 @app.route('/')
 @auth_basic(check_credentials)
 def welcome():
     """Velkomstside, som kræver login."""
 
     username = request.auth[0]  # Hent brugernavnet fra auth
-    base64_plot = plot()
+    alldata_base64_plot = plot()
 
-    welcome_html: sourcetypes.html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Velkommen</title>
-        </head>
-        <body>
-            <h1>Velkommen, {username}!</h1>
-            <p>Du er nu logget ind.</p>
-            <form action="/logout" method="post">
-                <button type="submit">Log ud</button>
-            </form>
-            <img src="data:image/png;base64,{base64_plot}"/>
-        </body>
-        </html>
+    welcome_content: sourcetypes.html = f"""
+        <h2>Velkommen, {username}!</h2>
+        <p>Du er nu logget ind.</p>
+
+        <img src="data:image/png;base64,{alldata_base64_plot}"/>
     """
-    return template(welcome_html)
+    return render_page(welcome_content, title="Velkommen")
 
 
 @app.route('/logout', method='POST')
