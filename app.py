@@ -133,7 +133,7 @@ def fetch_sensor_data():
 ####################################################################################################
 # Graph Plotting
 
-def plot(selected_metrics=None):
+def plot(selected_metrics=None, title=None):
     """
     Plot specifikke sensordata og returner grafen som en base64-kodet streng.
 
@@ -146,17 +146,21 @@ def plot(selected_metrics=None):
         "Humidity": (humidities, "Humidity (%)", "blue"),
     }
     """
-    # Hent data fra databasen (her kan man evt. tilpasse til sin egen databasehentning)
+
+    # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
 
     # Hvis der ikke er valgt nogle datapunkter, så vælger vi alle som standard
     if selected_metrics is None:
+
         selected_metrics = {
             "Temperature": (temperatures, "Temperature (°C)", "red"),
             "Humidity": (humidities, "Humidity (%)", "blue"),
             "Loudness": (loudness, "Loudness (dB)", "green"),
             "Light Level": (light_levels, "Light Level (lux)", "orange"),
         }
+
+    
 
     # Opret en figur og en akse
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -168,7 +172,10 @@ def plot(selected_metrics=None):
     # Formater grafen lidt
     ax.set_xlabel('Timestamp')
     ax.set_ylabel('Sensorværdier')
-    ax.set_title('Sensor Data Visualisering')
+    if title is None:
+        ax.set_title('Sensor Data Visualisering')
+    else:
+        ax.set_title(title)
     ax.legend(loc='upper left')  # Tilføj en lille forklaring i hjørnet
     ax.grid(True)  # Tænd for gitter, så det er nemmere at læse
 
@@ -227,30 +234,31 @@ base_template: sourcetypes.html = """
         <header>
             <nav class="navbar navbar-expand-lg bg-body-tertiary">
                 <div class="container-fluid">
-                    <a class="navbar-brand" href="#">Smart Night</a>
+                    <a class="navbar-brand" href="/">Smart Night</a>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>
                     <div class="collapse navbar-collapse" id="navbarNavDropdown">
                         <ul class="navbar-nav">
                             <li class="nav-item">
-                                <a class="nav-link active" aria-current="page" href="">Home</a>
+                                <a class="nav-link active" aria-current="page" href="/">Home</a>
                             </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    Sove Forhold
+                                    Forhold i soveværelset
                                 </a>
                                 <ul class="dropdown-menu">
                                     <li><a class="dropdown-item" href="temperature">Temperatur</a></li>
                                     <li><a class="dropdown-item" href="humidity">Luftfugtighed</a></li>
-                                    <li><a class="dropdown-item" href="light">Lys</a></li>
-                                    <li><a class="dropdown-item" href="noise">Støj</a></li>
+                                    <li><a class="dropdown-item" href="light_level">Lys</a></li>
+                                    <li><a class="dropdown-item" href="loudness">Støj</a></li>
                                 </ul>
                             </li>
                         </ul>
                     </div>
                 </div>
             </nav>
+
         </header>
         <main>
             <br>
@@ -275,7 +283,7 @@ def render_page(content, title):
 
 @app.route('/')
 @auth_basic(check_credentials)
-def welcome():
+def welcome_page():
     """Velkomstside, som kræver login."""
 
     username = request.auth[0]  # Hent brugernavnet fra auth
@@ -283,11 +291,87 @@ def welcome():
 
     welcome_content: sourcetypes.html = f"""
         <h2>Velkommen, {username}!</h2>
-        <p>Du er nu logget ind.</p>
+        <p>Du er nu logget ind og kan dermed se alle data omkring forholdende i dit soveværelse!</p>
 
         <img src="data:image/png;base64,{alldata_base64_plot}"/>
     """
     return render_page(welcome_content, title="Velkommen")
+
+
+@app.route('/temperature')
+@auth_basic(check_credentials)
+def temperature_page():
+    """Side for temperatur, kræver login."""
+
+    # Hent data fra databasen
+    timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
+    selected_metrics = {"Temperature": (temperatures, "Temperatur (°C)", "red")}
+    temperature_base64_plot = plot(selected_metrics, "Temperatur i soveværelset")
+
+    content: sourcetypes.html = f"""
+        <h2>Temperatur i soveværelset</h2>
+        <br>
+        <img src="data:image/png;base64,{temperature_base64_plot}"/>
+    """
+    return render_page(content, title="Temperatur i soveværelset")
+
+
+@app.route('/humidity')
+@auth_basic(check_credentials)
+def humidity_page():
+    """Side for luftfugtighed, kræver login."""
+
+    # Hent data fra databasen
+    timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
+    selected_metrics = {"Humidity": (humidities, "Luftfugtighed (%)", "blue")}
+    humidity_base64_plot = plot(selected_metrics, "Luftfugtighed i soveværelset")
+
+    content: sourcetypes.html = f"""
+        <h2>Luftfugtighed i soveværelset</h2>
+        <br>
+        <img src="data:image/png;base64,{humidity_base64_plot}"/>
+    """
+    return render_page(content, title="Luftfugtighed i soveværelset")
+
+
+@app.route('/light_level')
+@auth_basic(check_credentials)
+def light_level_page():
+    """Side for lys niveau, kræver login."""
+
+    metric_title = "Lys i soveværelset"
+
+    # Hent data fra databasen
+    timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
+    selected_metrics = {"Light Level": (light_levels, "Lys (lux)", "orange")}
+    light_base64_plot = plot(selected_metrics, metric_title)
+
+    content: sourcetypes.html = f"""
+        <h2>{metric_title}</h2>
+        <br>
+        <img src="data:image/png;base64,{light_base64_plot}"/>
+    """
+    return render_page(content, title=metric_title)
+
+
+@app.route('/loudness')
+@auth_basic(check_credentials)
+def loudness_page():
+    """Side for støj, kræver login."""
+
+    metric_title = "Støj i soveværelset"
+
+    # Hent data fra databasen
+    timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
+    selected_metrics = {"Loudness": (loudness, "Loudness (dB)", "green")}
+    loudness_base64_plot = plot(selected_metrics, metric_title)
+
+    content: sourcetypes.html = f"""
+        <h2>{metric_title}</h2>
+        <br>
+        <img src="data:image/png;base64,{loudness_base64_plot}"/>
+    """
+    return render_page(content, title=metric_title)
 
 
 @app.route('/logout', method='POST')
