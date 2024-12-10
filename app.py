@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 
 # General imports
 import os
+import threading
+from time import sleep
 
 ####################################################################################################
 # Configuration
@@ -59,39 +61,41 @@ finally:
 
 
 
-def generate_test_data(num_records):
-    try:
-        # Forbind til SQLite-databasen
-        db = sqlite3.connect('sensordata.db')
-        cursor = db.cursor()
+def generate_test_data(num_records, interval):
+    while True:
+        try:
+            # Forbind til SQLite-databasen
+            db = sqlite3.connect('sensordata.db')
+            cursor = db.cursor()
 
-        # Generer og indsæt testdata
-        for _ in range(num_records):
-            temperature = round(random.uniform(15.0, 30.0), 2)  # Temperatur mellem 15.0 og 30.0 grader Celsius
-            humidity = round(random.uniform(30.0, 90.0), 2)      # Luftfugtighed mellem 30% og 90%
-            loudness = round(random.uniform(30.0, 100.0), 2)     # Støjniveau mellem 30 og 100 dB
-            light_level = round(random.uniform(100.0, 1000.0), 2) # Lysniveau mellem 100 og 1000 lux
-            
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # Aktuel tid
+            # Generer og indsæt testdata
+            for _ in range(num_records):
+                temperature = round(random.uniform(15.0, 25.0), 2)  # Temperatur mellem 15.0 og 30.0 grader Celsius
+                humidity = round(random.uniform(30.0, 90.0), 2)      # Luftfugtighed mellem 30% og 90%
+                loudness = round(random.uniform(20.0, 50.0), 2)     # Støjniveau mellem 30 og 100 dB
+                light_level = round(random.uniform(100.0, 1000.0), 2) # Lysniveau mellem 100 og 1000 lux
+                
+                timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # Aktuel tid
 
-            # Sæt data ind i tabellen
-            sql_insert_into_table: sourcetypes.sql = """
-                INSERT INTO SensorData (timestamp, temperature, humidity, loudness, light_level)
-                VALUES (?, ?, ?, ?, ?)
-            """
-            cursor.execute(sql_insert_into_table, (timestamp, temperature, humidity, loudness, light_level))
+                # Sæt data ind i tabellen
+                sql_insert_into_table: sourcetypes.sql = """
+                    INSERT INTO SensorData (timestamp, temperature, humidity, loudness, light_level)
+                    VALUES (?, ?, ?, ?, ?)
+                """
+                cursor.execute(sql_insert_into_table, (timestamp, temperature, humidity, loudness, light_level))
 
-        # Gem ændringer i databasen
-        db.commit()
-        print(f"{num_records} testdata bliver indsat.")
+            # Gem ændringer i databasen
+            db.commit()
+            print(f"{num_records} testdata bliver indsat.")
 
-    except Exception as ex:
-        print(f"Der opstår en fejl: {ex}")
+        except Exception as ex:
+            print(f"Der opstår en fejl: {ex}")
 
-    finally:
-        # Sørg for at databasen bliver lukket
-        if "db" in locals():
-            db.close()
+        finally:
+            # Sørg for at databasen bliver lukket
+            if "db" in locals():
+                db.close()
+            sleep(interval)
 
 
 
@@ -133,7 +137,7 @@ def fetch_sensor_data():
 ####################################################################################################
 # Graph Plotting
 
-def plot(selected_metrics=None, title=None):
+def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshold=None):
     """
     Plot specifikke sensordata og returner grafen som en base64-kodet streng.
 
@@ -161,13 +165,26 @@ def plot(selected_metrics=None, title=None):
         }
 
     
-
+    
     # Opret en figur og en akse
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Loop gennem valgte datapunkter og plot dem
     for metric_name, (data, label, color) in selected_metrics.items():
         ax.plot(timestamps, data, label=label, color=color)
+
+
+    if lower_threshold and upper_threshold:
+        # Fill the area between the thresholds
+        plt.fill_between(timestamps, lower_threshold, upper_threshold, color='green', alpha=0.3, label='Ideele soveforhold')
+
+
+    # Add horizontal lines to mark the thresholds
+    if lower_threshold:
+        plt.axhline(y=lower_threshold, color='black', linestyle='--', linewidth=1)
+    if upper_threshold:
+        plt.axhline(y=upper_threshold, color='black', linestyle='--', linewidth=1)
+
 
     # Formater grafen lidt
     ax.set_xlabel('Timestamp')
@@ -306,7 +323,7 @@ def temperature_page():
     # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
     selected_metrics = {"Temperature": (temperatures, "Temperatur (°C)", "red")}
-    temperature_base64_plot = plot(selected_metrics, "Temperatur i soveværelset")
+    temperature_base64_plot = plot(selected_metrics, "Temperatur i soveværelset", lower_threshold=17, upper_threshold=19)
 
     content: sourcetypes.html = f"""
         <h2>Temperatur i soveværelset</h2>
@@ -364,7 +381,7 @@ def loudness_page():
     # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
     selected_metrics = {"Loudness": (loudness, "Loudness (dB)", "green")}
-    loudness_base64_plot = plot(selected_metrics, metric_title)
+    loudness_base64_plot = plot(selected_metrics, metric_title, 0, 30)
 
     content: sourcetypes.html = f"""
         <h2>{metric_title}</h2>
@@ -389,7 +406,9 @@ if __name__ == '__main__':
     
     if GENERATE_TEST_DATA:
         # Eksempel på brug: Generer 10 testdata (Udkommenter eller fjern ved endelig implementering)
-        generate_test_data(20)
+        #generate_test_data(20)
+        generate_test_data_thread = threading.Thread(target=generate_test_data, name="Data Generator", args=(1,10))
+        generate_test_data_thread.start()
 
     # Tjekker om det nuværende operativ system er UNIX-lignende.
     if USE_HTTPS and os.name == "posix":
