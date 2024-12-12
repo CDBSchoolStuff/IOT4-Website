@@ -23,13 +23,15 @@ GENERATE_TEST_DATA = True
 HOST_ADDRESS = "localhost"
 HOST_PORT = 8080
 
+DATABASE_PATH = 'sensordata.db'
+
 
 ####################################################################################################
 # Database
 
 try:
     # Forbind til SQLite-databasen (vil oprette databasefilen, hvis den ikke findes)
-    db = sqlite3.connect('sensordata.db')
+    db = sqlite3.connect(DATABASE_PATH)
 
     # Opret et cursor-objekt til at interagere med databasen
     cursor = db.cursor()
@@ -62,10 +64,11 @@ finally:
 
 
 def generate_test_data(num_records, interval):
+    """Funktion der genererer placeholder data og indsætter det i databasen."""
     while True:
         try:
             # Forbind til SQLite-databasen
-            db = sqlite3.connect('sensordata.db')
+            db = sqlite3.connect(DATABASE_PATH)
             cursor = db.cursor()
 
             # Generer og indsæt testdata
@@ -73,7 +76,7 @@ def generate_test_data(num_records, interval):
                 temperature = round(random.uniform(15.0, 25.0), 2)  # Temperatur mellem 15.0 og 30.0 grader Celsius
                 humidity = round(random.uniform(30.0, 90.0), 2)      # Luftfugtighed mellem 30% og 90%
                 loudness = round(random.uniform(20.0, 50.0), 2)     # Støjniveau mellem 30 og 100 dB
-                light_level = round(random.uniform(100.0, 1000.0), 2) # Lysniveau mellem 100 og 1000 lux
+                light_level = round(random.uniform(0.0, 1000.0), 2) # Lysniveau mellem 100 og 1000 lux
                 
                 timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # Aktuel tid
 
@@ -105,7 +108,7 @@ def fetch_sensor_data():
     """Muliggør hentning af værdier fra sensordata databasen og returneres som en tuple af lister."""
     try:
         # Forbind til databasen
-        db = sqlite3.connect('sensordata.db')
+        db = sqlite3.connect(DATABASE_PATH)
         cursor = db.cursor()
 
         # Hent data fra SensorData tabellen
@@ -177,13 +180,10 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
     if lower_threshold and upper_threshold:
         # Fill the area between the thresholds
         plt.fill_between(timestamps, lower_threshold, upper_threshold, color='green', alpha=0.3, label='Ideele soveforhold')
-
-
-    # Add horizontal lines to mark the thresholds
-    if lower_threshold:
         plt.axhline(y=lower_threshold, color='black', linestyle='--', linewidth=1)
-    if upper_threshold:
         plt.axhline(y=upper_threshold, color='black', linestyle='--', linewidth=1)
+    elif upper_threshold and not lower_threshold:
+        plt.axhline(y=upper_threshold, color='black', linestyle='--', linewidth=1, label='Ideele soveforhold')
 
 
     # Formater grafen lidt
@@ -315,6 +315,21 @@ def welcome_page():
     return render_page(welcome_content, title="Velkommen")
 
 
+
+def sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, data):
+    """"""
+
+    selected_metrics = {key: (data, label, color)}
+    base64_plot = plot(selected_metrics, title, lower_threshold, upper_threshold)
+
+    content: sourcetypes.html = f"""
+        <h2>{title}</h2>
+        <br>
+        <img src="data:image/png;base64,{base64_plot}"/>
+    """
+    return content
+
+
 @app.route('/temperature')
 @auth_basic(check_credentials)
 def temperature_page():
@@ -322,33 +337,35 @@ def temperature_page():
 
     # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
-    selected_metrics = {"Temperature": (temperatures, "Temperatur (°C)", "red")}
-    temperature_base64_plot = plot(selected_metrics, "Temperatur i soveværelset", lower_threshold=17, upper_threshold=19)
 
-    content: sourcetypes.html = f"""
-        <h2>Temperatur i soveværelset</h2>
-        <br>
-        <img src="data:image/png;base64,{temperature_base64_plot}"/>
-    """
-    return render_page(content, title="Temperatur i soveværelset")
+    title = "Temperatur i soveværelset"
+    key = "Temperature"
+    label = "Temperatur (°C)" 
+    color = "red"
+    lower_threshold = 17
+    upper_threshold = 19
+
+    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, temperatures), title)
+
 
 
 @app.route('/humidity')
 @auth_basic(check_credentials)
-def humidity_page():
+def temperature_page():
     """Side for luftfugtighed, kræver login."""
 
     # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
-    selected_metrics = {"Humidity": (humidities, "Luftfugtighed (%)", "blue")}
-    humidity_base64_plot = plot(selected_metrics, "Luftfugtighed i soveværelset")
 
-    content: sourcetypes.html = f"""
-        <h2>Luftfugtighed i soveværelset</h2>
-        <br>
-        <img src="data:image/png;base64,{humidity_base64_plot}"/>
-    """
-    return render_page(content, title="Luftfugtighed i soveværelset")
+    title = "Luftfugtighed i soveværelset"
+    key = "Humidity"
+    label = "Luftfugtighed (%)" 
+    color = "blue"
+    lower_threshold = 40
+    upper_threshold = 60
+
+    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, humidities), title)
+
 
 
 @app.route('/light_level')
@@ -356,19 +373,20 @@ def humidity_page():
 def light_level_page():
     """Side for lys niveau, kræver login."""
 
-    metric_title = "Lys i soveværelset"
-
     # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
-    selected_metrics = {"Light Level": (light_levels, "Lys (lux)", "orange")}
-    light_base64_plot = plot(selected_metrics, metric_title)
 
-    content: sourcetypes.html = f"""
-        <h2>{metric_title}</h2>
-        <br>
-        <img src="data:image/png;base64,{light_base64_plot}"/>
-    """
-    return render_page(content, title=metric_title)
+    title = "Lys i soveværelset"
+    key = "Light Level"
+    label = "Lys (lux)" 
+    color = "orange"
+    lower_threshold = 0.1
+    upper_threshold = 10
+
+    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, light_levels), title)
+
+
+
 
 
 @app.route('/loudness')
@@ -376,19 +394,17 @@ def light_level_page():
 def loudness_page():
     """Side for støj, kræver login."""
 
-    metric_title = "Støj i soveværelset"
-
     # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
-    selected_metrics = {"Loudness": (loudness, "Loudness (dB)", "green")}
-    loudness_base64_plot = plot(selected_metrics, metric_title, 0, 30)
 
-    content: sourcetypes.html = f"""
-        <h2>{metric_title}</h2>
-        <br>
-        <img src="data:image/png;base64,{loudness_base64_plot}"/>
-    """
-    return render_page(content, title=metric_title)
+    title = "Støj i soveværelset"
+    key = "Loudness"
+    label = "Loudness (dB)" 
+    color = "green"
+    lower_threshold = 0.1
+    upper_threshold = 30
+
+    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, loudness), title)
 
 
 @app.route('/logout', method='POST')
