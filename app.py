@@ -63,8 +63,9 @@ finally:
 
 
 
-def generate_test_data(num_records, interval):
+def generate_test_data(num_records, delay):
     """Funktion der genererer placeholder data og indsætter det i databasen."""
+
     while True:
         try:
             # Forbind til SQLite-databasen
@@ -98,14 +99,12 @@ def generate_test_data(num_records, interval):
             # Sørg for at databasen bliver lukket
             if "db" in locals():
                 db.close()
-            sleep(interval)
+            sleep(delay)
 
 
 
-
-# Hjælpefunktion til at hente data fra databasen
 def fetch_sensor_data():
-    """Muliggør hentning af værdier fra sensordata databasen og returneres som en tuple af lister."""
+    """Hjælpefunktion til hentning af værdier fra sensordata databasen. Returnerer dem som lister."""
     try:
         # Forbind til databasen
         db = sqlite3.connect(DATABASE_PATH)
@@ -145,7 +144,7 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
     Plot specifikke sensordata og returner grafen som en base64-kodet streng.
 
     selected_metrics (dict): 
-    En dictionary hvor nøgler er navnene på de datapunkter, der skal plottes (fx 'Temperature', 'Humidity'), og værdierne er tuples med (data_values, label, color).
+    En dictionary hvor keys er navnene på de datapunkter, der skal plottes (fx 'Temperature', 'Humidity'), og værdierne er tuples med (data_values, label, color).
    
     Eksempel: 
     {
@@ -157,7 +156,7 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
     # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
 
-    # Hvis der ikke er valgt nogle datapunkter, så vælger vi alle som standard
+    # Hvis der ikke er valgt nogle datapunkter, så vælges alle som standard
     if selected_metrics is None:
 
         selected_metrics = {
@@ -196,7 +195,7 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
     ax.legend(loc='upper left')  # Tilføj en lille forklaring i hjørnet
     ax.grid(True)  # Tænd for gitter, så det er nemmere at læse
 
-    # Drej x-aksens labels, så de ikke overlapper og er til at læse
+    # Drej x-aksens labels, så de ikke overlapper og er til at læse. Desuden begræns x-axis labels til hver 10.
     plt.xticks(rotation=45, ha="right", ticks=range(0, 100, 10))
     
     # Konverter grafen til et PNG-billede i hukommelsen
@@ -423,9 +422,9 @@ if __name__ == '__main__':
     if GENERATE_TEST_DATA:
         # Eksempel på brug: Generer 10 testdata (Udkommenter eller fjern ved endelig implementering)
         #generate_test_data(20)
-        generate_test_data_thread = threading.Thread(target=generate_test_data, name="Data Generator", args=(1,10))
-        generate_test_data_thread.start()
-
+        generate_data_thread = threading.Thread(target=generate_test_data, name="Data Generator", args=(1,10), daemon=True)
+        generate_data_thread.start()
+        
     # Tjekker om det nuværende operativ system er UNIX-lignende.
     if USE_HTTPS and os.name == "posix":
         # Start serveren (kører lokalt på port 8080)
@@ -437,5 +436,4 @@ if __name__ == '__main__':
     
     else:
         # Start serveren (kører lokalt på port 8080)
-        run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True)
-        
+        run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True, reloader=True)
