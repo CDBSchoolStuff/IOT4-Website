@@ -76,7 +76,7 @@ def generate_test_data(num_records, interval):
                 temperature = round(random.uniform(15.0, 25.0), 2)  # Temperatur mellem 15.0 og 30.0 grader Celsius
                 humidity = round(random.uniform(30.0, 90.0), 2)      # Luftfugtighed mellem 30% og 90%
                 loudness = round(random.uniform(20.0, 50.0), 2)     # Støjniveau mellem 30 og 100 dB
-                light_level = round(random.uniform(0.0, 1000.0), 2) # Lysniveau mellem 100 og 1000 lux
+                light_level = round(random.uniform(0.0, 200.0), 2) # Lysniveau mellem 100 og 1000 lux
                 
                 timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # Aktuel tid
 
@@ -197,7 +197,7 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
     ax.grid(True)  # Tænd for gitter, så det er nemmere at læse
 
     # Drej x-aksens labels, så de ikke overlapper og er til at læse
-    plt.xticks(rotation=45, ha="right")
+    plt.xticks(rotation=45, ha="right", ticks=range(0, 100, 10))
     
     # Konverter grafen til et PNG-billede i hukommelsen
     img_buf = io.BytesIO()
