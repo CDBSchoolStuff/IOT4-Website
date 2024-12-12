@@ -3,3 +3,5 @@ bcrypt ~= 4.2
 sourcetypes
 matplotlib
 gunicorn
+#paho-mqtt
+amqtt == 0.11.0b1

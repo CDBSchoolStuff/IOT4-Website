@@ -11,19 +11,28 @@ import matplotlib.pyplot as plt
 
 # General imports
 import os
-import threading
 from time import sleep
+
+# MQTT
+from credentials import credentials
+import asyncio
+from amqtt.broker import Broker
 
 ####################################################################################################
 # Configuration
 
 USE_HTTPS = False
 GENERATE_TEST_DATA = True
+START_MQTT_BROKER = True
+START_MQTT_CLIENT = True
 
 HOST_ADDRESS = "localhost"
 HOST_PORT = 8080
 
 DATABASE_PATH = 'sensordata.db'
+
+
+MQTT_TOPIC_SENSORDATA = 'mqtt_sensordata'
 
 
 ####################################################################################################
@@ -63,7 +72,7 @@ finally:
 
 
 
-def generate_test_data(num_records, delay):
+async def generate_test_data(num_records, delay):
     """Funktion der genererer placeholder data og indsætter det i databasen."""
 
     while True:
@@ -99,7 +108,8 @@ def generate_test_data(num_records, delay):
             # Sørg for at databasen bliver lukket
             if "db" in locals():
                 db.close()
-            sleep(delay)
+            await asyncio.sleep(delay)
+            #sleep(delay)
 
 
 
@@ -211,7 +221,57 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
     # Returner billedet som en base64-streng
     return img_base64
 
-    
+
+
+
+####################################################################################################
+# MQTT Client
+
+# https://github.com/CDBSchoolStuff/IOT3-Point-of-Ordering/blob/83e08c390f011f64f7b18a91e050c7afc1fb731a/app.py#L34C1-L101C61
+# https://pypi.org/project/paho-mqtt/
+
+import paho.mqtt.client as mqtt
+
+mqtt_server = credentials['mqtt_server']
+
+
+# The callback for when the client receives a CONNACK response from the server.
+def on_connect(client, userdata, flags, reason_code, properties):
+    print(f"Connected with result code {reason_code}")
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
+    client.subscribe(MQTT_TOPIC_SENSORDATA)
+
+# The callback for when a PUBLISH message is received from the server.
+def on_message(client, userdata, msg):
+
+    if msg.topic == MQTT_TOPIC_SENSORDATA:
+        byte_string = msg.payload
+        decoded_string = byte_string.decode("utf-8")
+        
+        print(f"{msg.topic} {decoded_string}")
+
+
+async def start_mqtt_client():
+    try:
+        mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        mqttc.on_connect = on_connect
+        mqttc.on_message = on_message
+        mqttc.connect(mqtt_server)
+
+        # Blocking call that processes network traffic, dispatches callbacks and
+        # handles reconnecting.
+        # Other loop*() functions are available that give a threaded interface and a
+        # manual interface.
+        # mqttc.loop_forever()
+        mqttc.loop_start()
+
+    except Exception as e:
+        print(f"[MQTT] {e}")
+        print("Failed to connect to MQTT broker. Continuing...")
+
+
+
 
 ####################################################################################################
 # Bottle
@@ -417,23 +477,57 @@ def logout():
 
 
 
-if __name__ == '__main__':
+####################################################################################################
+# MQTT Broker
+
+# Konfiguration til MQTT-brokeren
+broker_config = {
+    "listeners": {
+        "default": {
+            "type": "tcp",
+            "bind": "127.0.0.1:1883"  # Her kan du ændre IP og port, hvis du vil
+        }
+    },
+    "sys_interval": 10,  # Tidsinterval for systememner (sys topics)
+    "auth": {
+        "allow-anonymous": True  # Sæt til False, hvis du vil kræve login
+    },
+    "topic-check": {
+        "enabled": True,
+        "list": [MQTT_TOPIC_SENSORDATA]
+    }
+}
+
+async def start_broker():
+    broker = Broker(broker_config)
+    await broker.start()
+
+    print("MQTT broker is running...")
+    await asyncio.Event().wait()
+
+
+####################################################################################################
+# Main
+
+async def main():
+    """Executes asynchronous tasks."""
+    if START_MQTT_BROKER:
+        broker_task = asyncio.create_task(start_broker())
     
     if GENERATE_TEST_DATA:
-        # Eksempel på brug: Generer 10 testdata (Udkommenter eller fjern ved endelig implementering)
-        #generate_test_data(20)
-        generate_data_thread = threading.Thread(target=generate_test_data, name="Data Generator", args=(1,10), daemon=True)
-        generate_data_thread.start()
+        generate_data_task = asyncio.create_task(generate_test_data(1, 10))
         
-    # Tjekker om det nuværende operativ system er UNIX-lignende.
-    if USE_HTTPS and os.name == "posix":
-        # Start serveren (kører lokalt på port 8080)
-        run(app, host=HOST_ADDRESS, port=HOST_PORT , server='gunicorn'
-            # , reloader=1 # Kun anvendt med 'gunicorn'
-            # , keyfile='key.pem'
-            # , certfile='cert.pem'
-            )
+    if START_MQTT_CLIENT:
+        await asyncio.sleep(4) # Vent med at starte mqtt client.
+        mqtt_client_task = asyncio.create_task(start_mqtt_client())
+
+    # Await tasks
+    await broker_task, generate_data_task
+
+
+if __name__ == '__main__':
     
-    else:
-        # Start serveren (kører lokalt på port 8080)
-        run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True, reloader=True)
+    asyncio.run(main())
+
+    # Start serveren (kører lokalt på port 8080)
+    run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True, reloader=True)

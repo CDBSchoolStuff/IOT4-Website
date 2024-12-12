@@ -47,5 +47,11 @@
 **MQTT:**
 [A Beginner’s Guide to MQTT: Understanding MQTT, Mosquitto Broker, and Paho Python MQTT Client](https://medium.com/@potekh.anastasia/a-beginners-guide-to-mqtt-understanding-mqtt-mosquitto-broker-and-paho-python-mqtt-client-990822274923)
 
+https://github.com/CDBSchoolStuff/IOT3-Point-of-Ordering/blob/83e08c390f011f64f7b18a91e050c7afc1fb731a/app.py#L34C1-L101C61
+
+https://pypi.org/project/paho-mqtt/
+
+https://github.com/Yakifo/amqtt
+
 **MQTT TLS:**
 [Stack Overflow: How to use ssl/tls in paho mqtt using python? I got certificate verify failed](https://stackoverflow.com/questions/51942821/how-to-use-ssl-tls-in-paho-mqtt-using-python-i-got-certificate-verify-failed)
