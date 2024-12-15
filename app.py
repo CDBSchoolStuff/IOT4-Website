@@ -237,7 +237,7 @@ mqtt_server = credentials['mqtt_server']
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, reason_code, properties):
-    print(f"Connected with result code {reason_code}")
+    print(f"[MQTT Client] Connected with result code {reason_code}")
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
     client.subscribe(MQTT_TOPIC_SENSORDATA)
@@ -267,8 +267,8 @@ async def start_mqtt_client():
         mqttc.loop_start()
 
     except Exception as e:
-        print(f"[MQTT] {e}")
-        print("Failed to connect to MQTT broker. Continuing...")
+        print(f"[MQTT Client] {e}")
+        print("[MQTT Client] Failed to connect to MQTT broker. Continuing...")
 
 
 
@@ -502,7 +502,7 @@ async def start_broker():
     broker = Broker(broker_config)
     await broker.start()
 
-    print("MQTT broker is running...")
+    print("[MQTT Broker] Running...")
     await asyncio.Event().wait()
 
 
