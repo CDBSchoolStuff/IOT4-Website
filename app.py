@@ -30,6 +30,8 @@ START_MQTT_CLIENT = True
 HOST_ADDRESS = "localhost"
 HOST_PORT = 8080
 
+REFRESH_DELAY = 10 # Hvor ofte siden skal refreshes
+
 DATABASE_PATH = 'sensordata.db'
 
 
@@ -110,8 +112,6 @@ async def generate_test_data(num_records, delay):
             if "db" in locals():
                 db.close()
             await asyncio.sleep(delay)
-            #sleep(delay)
-
 
 
 def fetch_sensor_data():
@@ -145,6 +145,29 @@ def fetch_sensor_data():
         print(f"Der opstår en fejl: {ex}")
         return [], [], [], [], []
 
+def get_latest_datapoint(data_type):
+    """Finder den nyeste værdi for en valgt datatype fra sensordata."""
+    # Henter sensordata fra databasen
+    timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
+
+    # Hvis der ikke er nogen data, så returner bare None
+    if not timestamps:
+        return None
+
+    # Lav en "ordbog" (dictionary), der forbinder datatype med værdierne
+    data_map = {
+        "temperature": temperatures,
+        "humidity": humidities,
+        "loudness": loudness,
+        "light_level": light_levels
+    }
+
+    # Tjek om den ønskede datatype findes
+    if data_type in data_map:
+        return data_map[data_type][0]  # Returner den nyeste værdi
+    else:
+        # Hvis det er noget andet end de gyldige datatyper, brok dig
+        raise ValueError(f"Ugyldig datatype: {data_type}. Vælg mellem 'temperature', 'humidity', 'loudness', eller 'light_level'.")
 
 
 ####################################################################################################
@@ -281,7 +304,9 @@ app = Bottle()
 
 # Brugerliste med hashed adgangskoder
 users = {
-    "admin": bcrypt.hashpw(b"password123", bcrypt.gensalt())
+    "admin": bcrypt.hashpw(b"password123", bcrypt.gensalt()),
+    "christian": bcrypt.hashpw(b"password321", bcrypt.gensalt()),
+    "magnus": bcrypt.hashpw(b"password213", bcrypt.gensalt())
 }
 
 def check_credentials(username, password):
@@ -314,7 +339,7 @@ base_template: sourcetypes.html = """
                 document.getElementById('dynamic-image').src = "data:image/png;base64," + event.data;
             }};
         </script> -->
-        <meta http-equiv="refresh" content="5"> <!-- Refresh every 15 minutes -->
+        <meta http-equiv="refresh" content={{refresh_delay}}> <!-- Refresh every 15 minutes -->
 
     </head>
     <body>
@@ -362,7 +387,7 @@ base_template: sourcetypes.html = """
 # Function to "inherit" base template
 def render_page(content, title):
     """Combine the base template with page-specific content."""
-    return template(base_template, title=title, content=content)
+    return template(base_template, title=title, content=content, refresh_delay=REFRESH_DELAY)
 
 
 
@@ -386,7 +411,7 @@ def welcome_page():
 
 
 
-def sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, data):
+def sensor_content_stitcher(key: str, label: str, color, title: str, lower_threshold: float, upper_threshold: float, data):
     """"""
 
     selected_metrics = {key: (data, label, color)}
@@ -394,6 +419,8 @@ def sensor_content_stitcher(key, label, color, title, lower_threshold, upper_thr
 
     content: sourcetypes.html = f"""
         <h2>{title}</h2>
+        <br>
+        {label}: {get_latest_datapoint(key.lower().replace(" ", "_"))}
         <br>
         <img src="data:image/png;base64,{base64_plot}"/>
         <!-- <img id="dynamic-image" src="data:image/png;base64,{plot(selected_metrics, title, lower_threshold, upper_threshold)}" alt="Loading plot..."/> -->
@@ -504,6 +531,10 @@ def logout():
 #         sleep(5)  # Send updates every 5 seconds
 
 
+def run_bottle_server():
+    """Start Bottle serveren."""
+    run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True, reloader=False)
+
 
 ####################################################################################################
 # MQTT Broker
@@ -537,13 +568,8 @@ async def start_broker():
 ####################################################################################################
 # Main
 
-def run_bottle_server():
-    """Start Bottle serveren."""
-    run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True, reloader=False)
-
-
 async def main():
-    """Executes asynchronous tasks."""
+    """Executes concurrent tasks."""
     tasks = []
 
     if START_MQTT_BROKER:
