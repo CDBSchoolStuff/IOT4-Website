@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 # General imports
 import os
 from time import sleep
+from threading import Thread
 
 # MQTT
 from credentials import credentials
@@ -506,28 +507,42 @@ async def start_broker():
     await asyncio.Event().wait()
 
 
+def run_bottle_server():
+    """Start Bottle serveren."""
+    run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True, reloader=False)
+
+
 ####################################################################################################
 # Main
 
 async def main():
     """Executes asynchronous tasks."""
+    tasks = []
+
     if START_MQTT_BROKER:
-        broker_task = asyncio.create_task(start_broker())
+        tasks.append(asyncio.create_task(start_broker()))
     
     if GENERATE_TEST_DATA:
-        generate_data_task = asyncio.create_task(generate_test_data(1, 10))
+        tasks.append(asyncio.create_task(generate_test_data(1, 10)))
         
     if START_MQTT_CLIENT:
-        await asyncio.sleep(4) # Vent med at starte mqtt client.
-        mqtt_client_task = asyncio.create_task(start_mqtt_client())
+        await asyncio.sleep(4)  # Vent med at starte MQTT client
+        tasks.append(asyncio.create_task(start_mqtt_client()))
 
-    # Await tasks
-    await broker_task, generate_data_task
+    # Await all tasks
+    await asyncio.gather(*tasks)
 
 
 if __name__ == '__main__':
-    
-    asyncio.run(main())
+    server_thread = None
+    try:
+        # Start Bottle server på seperat thread.
+        server_thread = Thread(target=run_bottle_server, daemon=True)
+        server_thread.start()
 
-    # Start serveren (kører lokalt på port 8080)
-    run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True, reloader=True)
+        # Kør asyncio tasks
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nGracefully shutting down...")
+    finally:
+        print("Program terminated.")
