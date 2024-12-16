@@ -38,6 +38,12 @@ DATABASE_PATH = 'sensordata.db'
 MQTT_TOPIC_SENSORDATA = 'mqtt_sensordata'
 
 
+MIN_TEMPERATURE, MAX_TEMPERATURE = 17, 19
+MIN_HUMIDITY, MAX_HUMIDITY = 40, 60
+MIN_LIGHT_LEVEL, MAX_LIGHT_LEVEL = 0, 10
+MIN_LOUDNESS, MAX_LOUDNESS = 0, 30
+
+
 ####################################################################################################
 # Database
 
@@ -367,16 +373,23 @@ base_template: sourcetypes.html = """
                                 </ul>
                             </li>
                         </ul>
+                        <div class="d-flex ms-auto">
+                            <form action="/logout" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-outline-danger">Log ud</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </nav>
 
         </header>
-        <main>
+        <main class="flex-grow-1">
             <br>
-            {{! content }}
+            <div class="container-sm">
+                {{! content }}
+            </div>
         </main>
-        <footer>
+        <footer class="mt-auto">
             <br>
             <p>&copy; 2024 IOT4 Project - Smart Night</p>
         </footer>
@@ -390,7 +403,9 @@ def render_page(content, title):
     return template(base_template, title=title, content=content, refresh_delay=REFRESH_DELAY)
 
 
-
+def determine_color_class(value, min, max):
+    # Determine the color class (green for within range, orange for out of range)
+    return "green" if min <= value <= max else "orange"
 
 
 @app.route('/')
@@ -401,9 +416,51 @@ def welcome_page():
     username = request.auth[0]  # Hent brugernavnet fra auth
     alldata_base64_plot = plot()
 
+    latest_temperature = float(get_latest_datapoint("temperature"))
+    latest_humidity = float(get_latest_datapoint("humidity"))
+    latest_light_level = float(get_latest_datapoint("light_level"))
+    latest_loudness = float(get_latest_datapoint("light_level"))
+
+    temperature_color = determine_color_class(latest_temperature, MIN_TEMPERATURE, MAX_TEMPERATURE)
+    humidity_color = determine_color_class(latest_humidity, MIN_HUMIDITY, MAX_HUMIDITY)
+    light_level_color = determine_color_class(latest_light_level, MIN_LIGHT_LEVEL, MAX_LIGHT_LEVEL)
+    loudness_color = determine_color_class(latest_loudness, MIN_LOUDNESS, MAX_LOUDNESS)
+
     welcome_content: sourcetypes.html = f"""
         <h2>Velkommen, {username}!</h2>
         <p>Du er nu logget ind og kan dermed se alle data omkring forholdende i dit soveværelse!</p>
+
+    
+        <div class="card-group">
+            <div class="card">
+                <div class="card-body">
+                <h5 class="card-title">Temperatur</h5>
+                <h2 class="card-text {temperature_color}">{latest_temperature} °C</h2>
+                <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                <h5 class="card-title">Luftfugtighed</h5>
+                <h2 class="card-text {humidity_color}">{latest_humidity} %</h2>
+                <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                <h5 class="card-title">Lys</h5>
+                <h2 class="card-text {light_level_color}">{latest_light_level} lux</h2>
+                <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                <h5 class="card-title">Støj</h5>
+                <h2 class="card-text {loudness_color}">{latest_loudness} dB</h2>
+                <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                </div>
+            </div>
+        </div>
 
         <img src="data:image/png;base64,{alldata_base64_plot}"/>
     """
@@ -421,6 +478,11 @@ def sensor_content_stitcher(key: str, label: str, color, title: str, lower_thres
         <h2>{title}</h2>
         <br>
         {label}: {get_latest_datapoint(key.lower().replace(" ", "_"))}
+        <div class="card" style="width: 18rem;">
+            <div class="card-body">
+                {label}: {get_latest_datapoint(key.lower().replace(" ", "_"))}
+            </div>
+        </div>
         <br>
         <img src="data:image/png;base64,{base64_plot}"/>
         <!-- <img id="dynamic-image" src="data:image/png;base64,{plot(selected_metrics, title, lower_threshold, upper_threshold)}" alt="Loading plot..."/> -->
