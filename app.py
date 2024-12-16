@@ -162,6 +162,7 @@ def get_latest_datapoint(data_type):
 
     # Lav en "ordbog" (dictionary), der forbinder datatype med værdierne
     data_map = {
+        "timestamp": timestamps,
         "temperature": temperatures,
         "humidity": humidities,
         "loudness": loudness,
@@ -173,7 +174,7 @@ def get_latest_datapoint(data_type):
         return data_map[data_type][0]  # Returner den nyeste værdi
     else:
         # Hvis det er noget andet end de gyldige datatyper, brok dig
-        raise ValueError(f"Ugyldig datatype: {data_type}. Vælg mellem 'temperature', 'humidity', 'loudness', eller 'light_level'.")
+        raise ValueError(f"Ugyldig datatype: {data_type}. Vælg mellem 'timestamp', 'temperature', 'humidity', 'loudness', eller 'light_level'.")
 
 
 ####################################################################################################
@@ -419,6 +420,20 @@ def determine_color_class(value, min, max):
     # Determine the color class (green for within range, orange for out of range)
     return "green" if min <= value <= max else "orange"
 
+def get_time_since_data():
+    # Hent data fra databasen
+    latest_timestamp = get_latest_datapoint("timestamp")
+    current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    timestamp1 = datetime.datetime.strptime(latest_timestamp, '%Y-%m-%d %H:%M:%S')
+    timestamp2 = datetime.datetime.strptime(current_time, '%Y-%m-%d %H:%M:%S')
+
+    time_diff = timestamp2 - timestamp1
+
+    minutes_diff = int(time_diff.total_seconds() / 60)
+
+    return minutes_diff
+
 
 @app.route('/')
 @auth_basic(check_credentials)
@@ -448,28 +463,28 @@ def welcome_page():
                 <div class="card-body">
                 <h5 class="card-title">Temperatur</h5>
                 <h2 class="card-text {temperature_color}">{latest_temperature} °C</h2>
-                <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                <p class="card-text"><small class="text-body-secondary">Sidst opdateret {get_time_since_data()} min siden</small></p>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body">
                 <h5 class="card-title">Luftfugtighed</h5>
                 <h2 class="card-text {humidity_color}">{latest_humidity} %</h2>
-                <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                <p class="card-text"><small class="text-body-secondary">Sidst opdateret {get_time_since_data()} min siden</small></p>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body">
                 <h5 class="card-title">Lys</h5>
                 <h2 class="card-text {light_level_color}">{latest_light_level} lux</h2>
-                <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                <p class="card-text"><small class="text-body-secondary">Sidst opdateret {get_time_since_data()} min siden</small></p>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body">
                 <h5 class="card-title">Støj</h5>
                 <h2 class="card-text {loudness_color}">{latest_loudness} dB</h2>
-                <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                <p class="card-text"><small class="text-body-secondary">Sidst opdateret {get_time_since_data()} min siden</small></p>
                 </div>
             </div>
         </div>
@@ -495,7 +510,7 @@ def sensor_content_stitcher(key: str, label: str, color, title: str, lower_thres
             <div class="card">
                 <div class="card-body">
                     <h1 class="card-text {color_class}">{latest_value} {symbol}</h2>
-                    <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                    <p class="card-text"><small class="text-body-secondary">Sidst opdateret {get_time_since_data()} min siden</small></p>
                 </div>
             </div>
         </div>
