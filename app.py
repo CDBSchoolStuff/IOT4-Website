@@ -40,8 +40,8 @@ MQTT_TOPIC_SENSORDATA = 'mqtt_sensordata'
 
 MIN_TEMPERATURE, MAX_TEMPERATURE = 17, 19
 MIN_HUMIDITY, MAX_HUMIDITY = 40, 60
-MIN_LIGHT_LEVEL, MAX_LIGHT_LEVEL = 0, 10
-MIN_LOUDNESS, MAX_LOUDNESS = 0, 30
+MIN_LIGHT_LEVEL, MAX_LIGHT_LEVEL = 0.1, 10
+MIN_LOUDNESS, MAX_LOUDNESS = 0.1, 30
 
 
 ####################################################################################################
@@ -347,6 +347,18 @@ base_template: sourcetypes.html = """
         </script> -->
         <meta http-equiv="refresh" content={{refresh_delay}}> <!-- Refresh every 15 minutes -->
 
+        <style>
+            .green {
+                color: green;
+            }
+            .orange {
+                color: orange;
+            }
+            .red {
+                color: red;
+            }
+        </style>
+
     </head>
     <body>
         <header>
@@ -419,7 +431,7 @@ def welcome_page():
     latest_temperature = float(get_latest_datapoint("temperature"))
     latest_humidity = float(get_latest_datapoint("humidity"))
     latest_light_level = float(get_latest_datapoint("light_level"))
-    latest_loudness = float(get_latest_datapoint("light_level"))
+    latest_loudness = float(get_latest_datapoint("loudness"))
 
     temperature_color = determine_color_class(latest_temperature, MIN_TEMPERATURE, MAX_TEMPERATURE)
     humidity_color = determine_color_class(latest_humidity, MIN_HUMIDITY, MAX_HUMIDITY)
@@ -462,31 +474,33 @@ def welcome_page():
             </div>
         </div>
 
-        <img src="data:image/png;base64,{alldata_base64_plot}"/>
+        <img class="img-fluid" src="data:image/png;base64,{alldata_base64_plot}"/>
     """
     return render_page(welcome_content, title="Velkommen")
 
 
 
-def sensor_content_stitcher(key: str, label: str, color, title: str, lower_threshold: float, upper_threshold: float, data):
+def sensor_content_stitcher(key: str, label: str, color, title: str, lower_threshold: float, upper_threshold: float, data, latest_value=0, symbol=""):
     """"""
 
     selected_metrics = {key: (data, label, color)}
     base64_plot = plot(selected_metrics, title, lower_threshold, upper_threshold)
 
+    color_class = determine_color_class(latest_value, lower_threshold, upper_threshold)
+
     content: sourcetypes.html = f"""
         <h2>{title}</h2>
         <br>
-        {label}: {get_latest_datapoint(key.lower().replace(" ", "_"))}
-        <div class="card" style="width: 18rem;">
-            <div class="card-body">
-                {label}: {get_latest_datapoint(key.lower().replace(" ", "_"))}
+        <div class="card-group">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-text {color_class}">{latest_value} {symbol}</h2>
+                    <p class="card-text"><small class="text-body-secondary">Last updated 3 mins ago</small></p>
+                </div>
             </div>
         </div>
         <br>
-        <img src="data:image/png;base64,{base64_plot}"/>
-        <!-- <img id="dynamic-image" src="data:image/png;base64,{plot(selected_metrics, title, lower_threshold, upper_threshold)}" alt="Loading plot..."/> -->
-        <p>Billedet opdateres automatisk!</p>
+        <img class="img-fluid" src="data:image/png;base64,{base64_plot}"/>
     """
     return content
 
@@ -499,14 +513,22 @@ def temperature_page():
     # Hent data fra databasen
     timestamps, temperatures, humidities, loudness, light_levels = fetch_sensor_data()
 
-    title = "Temperatur i soveværelset"
-    key = "Temperature"
-    label = "Temperatur (°C)" 
-    color = "red"
-    lower_threshold = 17
-    upper_threshold = 19
+    TITLE = "Temperatur i soveværelset"
 
-    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, temperatures), title)
+    return render_page(
+        sensor_content_stitcher(
+            key = "Temperature", 
+            label = "Temperatur (°C)", 
+            color = "red", 
+            title = TITLE, 
+            lower_threshold = MIN_TEMPERATURE, 
+            upper_threshold = MAX_TEMPERATURE, 
+            data = temperatures,
+            latest_value = get_latest_datapoint("temperature"),
+            symbol = "°C"
+        ), 
+        title = TITLE
+    )
 
 
 
@@ -522,10 +544,12 @@ def temperature_page():
     key = "Humidity"
     label = "Luftfugtighed (%)" 
     color = "blue"
-    lower_threshold = 40
-    upper_threshold = 60
+    lower_threshold = MIN_HUMIDITY
+    upper_threshold = MAX_HUMIDITY
+    latest_value = get_latest_datapoint("humidity")
+    symbol = "%"
 
-    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, humidities), title)
+    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, humidities, latest_value, symbol), title)
 
 
 
@@ -541,10 +565,12 @@ def light_level_page():
     key = "Light Level"
     label = "Lys (lux)" 
     color = "orange"
-    lower_threshold = 0.1
-    upper_threshold = 10
+    lower_threshold = MIN_LIGHT_LEVEL
+    upper_threshold = MAX_LIGHT_LEVEL
+    latest_value = get_latest_datapoint("light_level")
+    symbol = "lux"
 
-    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, light_levels), title)
+    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, light_levels, latest_value, symbol), title)
 
 
 
@@ -562,10 +588,12 @@ def loudness_page():
     key = "Loudness"
     label = "Loudness (dB)" 
     color = "green"
-    lower_threshold = 0.1
-    upper_threshold = 30
+    lower_threshold = MIN_LOUDNESS
+    upper_threshold = MAX_LOUDNESS
+    latest_value = get_latest_datapoint("loudness")
+    symbol = "dB"
 
-    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, loudness), title)
+    return render_page(sensor_content_stitcher(key, label, color, title, lower_threshold, upper_threshold, loudness, latest_value, symbol), title)
 
 
 @app.route('/logout', method='POST')
@@ -577,20 +605,6 @@ def logout():
     response.set_header('WWW-Authenticate', 'Basic realm="Login Required"')
     return response
 
-
-
-# @app.route('/stream')
-# @auth_basic(check_credentials)
-# def sse_stream():
-#     """SSE endpoint to stream the updated plot image."""
-#     response.content_type = 'text/event-stream'
-#     response.cache_control = 'no-cache'
-    
-#     # Continuously send the updated plot image as a base64 string
-#     while True:
-#         base64_image = plot()  # Generate or fetch the current plot as base64
-#         yield f"data: {base64_image}\n\n"
-#         sleep(5)  # Send updates every 5 seconds
 
 
 def run_bottle_server():
