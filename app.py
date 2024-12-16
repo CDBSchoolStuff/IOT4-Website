@@ -543,6 +543,4 @@ if __name__ == '__main__':
         # Kør asyncio tasks
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nGracefully shutting down...")
-    finally:
-        print("Program terminated.")
+        print("\nProgram terminated.")
