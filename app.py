@@ -396,7 +396,7 @@ def sensor_content_stitcher(key, label, color, title, lower_threshold, upper_thr
         <h2>{title}</h2>
         <br>
         <img src="data:image/png;base64,{base64_plot}"/>
-        <img id="dynamic-image" src="data:image/png;base64,{plot(selected_metrics, title, lower_threshold, upper_threshold)}" alt="Loading plot..."/>
+        <!-- <img id="dynamic-image" src="data:image/png;base64,{plot(selected_metrics, title, lower_threshold, upper_threshold)}" alt="Loading plot..."/> -->
         <p>Billedet opdateres automatisk!</p>
     """
     return content
