@@ -307,13 +307,14 @@ base_template: sourcetypes.html = """
         <title>{{title}}</title>
         <!--<link rel="stylesheet" href="/static/styles.css">-->
 
-        <script>
+        <!-- <script>
             // SSE to automatically update the image (Server-sent events)
             const eventSource = new EventSource('/stream');
             eventSource.onmessage = function(event) {{
                 document.getElementById('dynamic-image').src = "data:image/png;base64," + event.data;
             }};
-        </script>
+        </script> -->
+        <meta http-equiv="refresh" content="5"> <!-- Refresh every 15 minutes -->
 
     </head>
     <body>
@@ -489,18 +490,18 @@ def logout():
 
 
 
-@app.route('/stream')
-@auth_basic(check_credentials)
-def sse_stream():
-    """SSE endpoint to stream the updated plot image."""
-    response.content_type = 'text/event-stream'
-    response.cache_control = 'no-cache'
+# @app.route('/stream')
+# @auth_basic(check_credentials)
+# def sse_stream():
+#     """SSE endpoint to stream the updated plot image."""
+#     response.content_type = 'text/event-stream'
+#     response.cache_control = 'no-cache'
     
-    # Continuously send the updated plot image as a base64 string
-    while True:
-        base64_image = plot()  # Generate or fetch the current plot as base64
-        yield f"data: {base64_image}\n\n"
-        sleep(5)  # Send updates every 5 seconds
+#     # Continuously send the updated plot image as a base64 string
+#     while True:
+#         base64_image = plot()  # Generate or fetch the current plot as base64
+#         yield f"data: {base64_image}\n\n"
+#         sleep(5)  # Send updates every 5 seconds
 
 
 
@@ -533,13 +534,13 @@ async def start_broker():
     await asyncio.Event().wait()
 
 
+####################################################################################################
+# Main
+
 def run_bottle_server():
     """Start Bottle serveren."""
     run(app, host=HOST_ADDRESS, port=HOST_PORT, debug=True, reloader=False)
 
-
-####################################################################################################
-# Main
 
 async def main():
     """Executes asynchronous tasks."""
