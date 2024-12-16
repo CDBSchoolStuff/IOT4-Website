@@ -1,5 +1,5 @@
 # Imports for Bottle
-from bottle import Bottle, run, request, template, auth_basic, HTTPResponse
+from bottle import Bottle, run, request, template, auth_basic, HTTPResponse, response
 import bcrypt, sourcetypes
 
 # Imports for database
@@ -306,6 +306,15 @@ base_template: sourcetypes.html = """
         <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
         <title>{{title}}</title>
         <!--<link rel="stylesheet" href="/static/styles.css">-->
+
+        <script>
+            // SSE to automatically update the image (Server-sent events)
+            const eventSource = new EventSource('/stream');
+            eventSource.onmessage = function(event) {{
+                document.getElementById('dynamic-image').src = "data:image/png;base64," + event.data;
+            }};
+        </script>
+
     </head>
     <body>
         <header>
@@ -386,6 +395,8 @@ def sensor_content_stitcher(key, label, color, title, lower_threshold, upper_thr
         <h2>{title}</h2>
         <br>
         <img src="data:image/png;base64,{base64_plot}"/>
+        <img id="dynamic-image" src="data:image/png;base64,{plot(selected_metrics, title, lower_threshold, upper_threshold)}" alt="Loading plot..."/>
+        <p>Billedet opdateres automatisk!</p>
     """
     return content
 
@@ -475,6 +486,21 @@ def logout():
     response = HTTPResponse(status=401)
     response.set_header('WWW-Authenticate', 'Basic realm="Login Required"')
     return response
+
+
+
+@app.route('/stream')
+@auth_basic(check_credentials)
+def sse_stream():
+    """SSE endpoint to stream the updated plot image."""
+    response.content_type = 'text/event-stream'
+    response.cache_control = 'no-cache'
+    
+    # Continuously send the updated plot image as a base64 string
+    while True:
+        base64_image = plot()  # Generate or fetch the current plot as base64
+        yield f"data: {base64_image}\n\n"
+        sleep(5)  # Send updates every 5 seconds
 
 
 
