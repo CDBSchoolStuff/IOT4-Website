@@ -33,7 +33,9 @@ REFRESH_DELAY = 10 # Hvor ofte siden skal refreshes
 
 DATABASE_PATH = 'sensordata.db'
 
-BROKER_ADDRESS = "mqtt://localhost"  # Brug "mqtt://localhost" hvis lokal
+MQTT_BROKER_HOST_ADDRESS = "127.0.0.1" # Adresse som MQTT brokeren bliver hostet på
+MQTT_BROKER_HOST_PORT = "1883"
+MQTT_BROKER_CONNECT_ADDRESS = "mqtt://localhost"  # Adresse som MQTT klienten skal forbinde til (Brug "mqtt://localhost" hvis lokal)
 MQTT_TOPIC_SENSORDATA = 'mqtt_sensordata'
 
 
@@ -290,7 +292,7 @@ async def start_mqtt_client():
 
     try:
         print("[MQTT Client] Forbinder til broker...")
-        await client.connect(BROKER_ADDRESS)  # Forbind til broker
+        await client.connect(MQTT_BROKER_CONNECT_ADDRESS)  # Forbind til broker
 
         # Simulerer callbacks ved at kalde vores funktioner manuelt
         await on_connect(client)  # Kalder on_connect når der forbindes til broker
@@ -637,12 +639,11 @@ broker_config = {
     "listeners": {
         "default": {
             "type": "tcp",
-            "bind": "127.0.0.1:1883"  # Her kan du ændre IP og port, hvis du vil
+            "bind": f"{MQTT_BROKER_HOST_ADDRESS}:{MQTT_BROKER_HOST_PORT}"
         }
     },
-    "sys_interval": 10,  # Tidsinterval for systememner (sys topics)
     "auth": {
-        "allow-anonymous": True  # Sæt til False, hvis du vil kræve login
+        "allow-anonymous": True  # Sæt til "False" hvis der skal bruges adgangskode
     },
     "topic-check": {
         "enabled": True,
