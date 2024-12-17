@@ -124,16 +124,6 @@ def insert_data_into_database(data: list):
 
 
 
-async def mqtt_publish_data(data: list, client: MQTTClient):
-    """Takes sensordata and publishes it to MQTT topic. Simulating the sensor device sending."""
-
-    byte_string = json.dumps(data).encode('utf-8')
-    message = await client.publish(MQTT_TOPIC_SENSORDATA, byte_string)
-
-    print(message)
-    print("[MQTT Client] Message published")
-
-
 def generate_test_data():
     """Funktion der genererer testdata og returnerer det som liste."""
 
@@ -150,7 +140,7 @@ async def publish_testdata_loop(delay: int, client: MQTTClient):
     """Kører løkke der genererer og publisher testdata med delay"""
     while True:
         await mqtt_publish_data(generate_test_data(), client)
-        await asyncio.sleep(10)
+        await asyncio.sleep(delay)
 
 
 def fetch_sensor_data():
@@ -291,53 +281,83 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
 ####################################################################################################
 # MQTT Client
 
+async def mqtt_publish_data(data: list, client: MQTTClient):
+    """Takes sensordata and publishes it to MQTT topic. Simulating the sensor device sending."""
 
-# Callback: Håndterer forbindelsen til broker
-async def on_connect(client: MQTTClient):
-    print("[MQTT Client] Forbundet til MQTT broker")
-    # Abonnerer på emnet, når forbindelsen er oprettet
-    await client.subscribe([(MQTT_TOPIC_SENSORDATA, 0)])
-    print(f"[MQTT Client] Abonneret på emnet: {MQTT_TOPIC_SENSORDATA}")
+    byte_string = json.dumps(data).encode('utf-8')
+    message = await client.publish(MQTT_TOPIC_SENSORDATA, byte_string)
+
+    print(message)
+    print("[MQTT Client] Message published")
 
 
 # Callback: Håndterer modtagne beskeder
 async def on_message(client: MQTTClient):
     try:
+        print("[MQTT Client] Venter på beskeder...")  # Venter på beskeder fra broker
         while True:
-            # Vent på en ny besked fra broker
+            # Hent næste besked
             message = await client.deliver_message()
             packet = message.publish_packet
 
-            print(f"[MQTT Client] Received: {packet.payload.data.decode()}")
+            # Dekod beskedens indhold
+            topic = packet.variable_header.topic_name
+            payload = packet.payload.data.decode("utf-8")
 
-            # Filtrér beskeder efter emne
-            if packet.variable_header.topic_name == MQTT_TOPIC_SENSORDATA:
-                byte_string = packet.payload.data
-                decoded_string = byte_string.decode("utf-8")
-                print(f"[MQTT Client] {packet.variable_header.topic_name}: {decoded_string}")
+            # Filtrér beskeder for den rigtige topic
+            if topic == MQTT_TOPIC_SENSORDATA:
+                # Konverter payload string tilbage til en liste.
+                converted_list = eval(payload)
+
+                print(f"[MQTT Client] Modtaget besked på topic '{topic}': {converted_list}")
+
+                # Indsæt modtaget data i databasen.
+                insert_data_into_database(converted_list)
+                print("[MQTT Client] Sensordata indsat i databasen.")
 
     except Exception as e:
         print(f"[MQTT Client] Fejl ved modtagelse af besked: {e}")
 
 
-# Starter MQTT-klienten og binder callbacks
+# Funktion: Starter MQTT-klienten og håndterer forbindelsen
 async def start_mqtt_client(client: MQTTClient):
     try:
-        print("[MQTT Client] Forbinder til broker...")
-        await client.connect(MQTT_BROKER_CONNECT_ADDRESS)  # Forbind til broker
+        print("[MQTT Client] Forbinder til broker...")  # Forbinder til broker
+        await client.connect(MQTT_BROKER_CONNECT_ADDRESS)
+        print("[MQTT Client] Forbundet til broker.")
 
-        # Simulerer callbacks ved at kalde vores funktioner manuelt
-        await on_connect(client)  # Kalder on_connect når der forbindes til broker
-        await on_message(client)  # Starter on_message loop (venter på beskeder)
+        # Abonner på den ønskede topic
+        await client.subscribe([(MQTT_TOPIC_SENSORDATA, 1)])  # QoS 0
+        print(f"[MQTT Client] Abonneret på topic: {MQTT_TOPIC_SENSORDATA}")
+
+        # Start med at lytte efter beskeder
+        await on_message(client)
 
     except ConnectException as ce:
-        print(f"[MQTT Client] Kunne ikke forbinde til MQTT broker: {ce}")
-    except Exception as e:
-        print(f"[MQTT Client] En fejl opstod: {e}")
+        print(f"[MQTT Client] Kunne ikke forbinde til broker: {ce}")
+    except ClientException as e:
+        print(f"[MQTT Client] Noget gik galt: {e}")
     finally:
-        # Sørg for at disconnecte, hvis noget går galt
+        # Sørg for at disconnecte, når vi er færdige
         await client.disconnect()
-        print("[MQTT Client] Forbindelsen er lukket.")
+        print("[MQTT Client] Forbindelsen lukket.")
+
+
+
+# async def start_mqtt_client(client: MQTTClient):
+#     await client.connect(MQTT_BROKER_CONNECT_ADDRESS)
+#     await client.subscribe([(MQTT_TOPIC_SENSORDATA, QOS_1)])
+#     try:
+#         while True:
+#             message = await client.deliver_message()
+#             packet = message.publish_packet
+#             print("%s => %s" % (packet.variable_header.topic_name, str(packet.payload.data)))
+#     except ClientException as ce:
+#         logger.error(f"[MQTT Client] Client exception: {ce}")
+#     finally:
+#         # Sørg for at disconnecte, når vi er færdige
+#         await client.disconnect()
+#         print("[MQTT Client] Forbindelsen lukket.")
 
 
 ####################################################################################################
@@ -666,6 +686,8 @@ def run_bottle_server():
 ####################################################################################################
 # MQTT Broker
 
+# https://amqtt.readthedocs.io/en/latest/references/broker.html
+
 # Konfiguration til MQTT-brokeren
 broker_config = {
     "listeners": {
@@ -678,12 +700,12 @@ broker_config = {
         "allow-anonymous": True  # Sæt til "False" hvis der skal bruges adgangskode
     },
     "topic-check": {
-        "enabled": True,
+        "enabled": False, # Kan ikke få til at virke. Så lad den være slået fra.
         "list": [MQTT_TOPIC_SENSORDATA]
     }
 }
 
-async def start_broker():
+async def mqtt_broker_coro():
     broker = Broker(broker_config)
     await broker.start()
 
@@ -701,7 +723,7 @@ async def main():
     # Start MQTT-broker
     if START_MQTT_BROKER:
         print("[System] Starter MQTT-broker...")
-        tasks.append(asyncio.create_task(start_broker()))
+        tasks.append(asyncio.create_task(mqtt_broker_coro()))
 
     # Start MQTT-klient
     if START_MQTT_CLIENT:
@@ -715,14 +737,12 @@ async def main():
         print("[System] Venter 4 sekunder med at generere testdata...")
         await asyncio.sleep(4)  # Vent 4 sekunder før testdata begynder at generere
         print("[System] Starter test-datagenerator...")
-        #tasks.append(asyncio.create_task(generate_test_data(10)))
-        tasks.append(publish_testdata_loop(10, mqtt_client))
+        tasks.append(asyncio.create_task(publish_testdata_loop(10, mqtt_client)))
         
 
     # Afvent alle opgaver
     print("[System] Alle opgaver er startet. Afventer...")
     await asyncio.gather(*tasks)
-
 
 if __name__ == '__main__':
     server_thread = None
@@ -733,5 +753,6 @@ if __name__ == '__main__':
 
         # Kør asyncio tasks
         asyncio.run(main())
+        asyncio.get_event_loop().run_forever()
     except KeyboardInterrupt:
         print("\nProgram terminated.")
