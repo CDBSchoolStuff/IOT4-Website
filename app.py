@@ -281,6 +281,9 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
 ####################################################################################################
 # MQTT Client
 
+# https://amqtt.readthedocs.io/en/latest/references/mqttclient.html
+
+
 async def mqtt_publish_data(data: list, client: MQTTClient):
     """Takes sensordata and publishes it to MQTT topic. Simulating the sensor device sending."""
 
