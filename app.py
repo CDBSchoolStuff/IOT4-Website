@@ -13,13 +13,19 @@ import matplotlib.pyplot as plt
 from time import sleep
 from threading import Thread
 import asyncio
+import logging
+import json
 
 # MQTT
 from amqtt.broker import Broker
-from amqtt.client import MQTTClient, ConnectException
+from amqtt.client import MQTTClient, ConnectException, ClientException
+from amqtt.mqtt.constants import QOS_1, QOS_2
 
 ####################################################################################################
 # Configuration
+
+logger = logging.getLogger(__name__)
+mqtt_client = MQTTClient()  # Opretter klienten
 
 USE_HTTPS = False
 GENERATE_TEST_DATA = True
@@ -87,13 +93,16 @@ def get_current_timestamp():
     return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 
-def insert_data_into_database(temperature, humidity, loudness, light_level):
+def insert_data_into_database(data: list):
         try:
             # Forbind til SQLite-databasen
             db = sqlite3.connect(DATABASE_PATH)
             cursor = db.cursor()
             
             timestamp = get_current_timestamp() # Aktuel tid
+
+            # Udpak data listen til variabler
+            temperature, humidity, loudness, light_level = data
 
             # Sæt data ind i tabellen
             sql_insert_into_table: sourcetypes.sql = """
@@ -114,21 +123,34 @@ def insert_data_into_database(temperature, humidity, loudness, light_level):
                 db.close()
 
 
-async def generate_test_data(delay):
-    """Funktion der genererer testdata og indsætter det i databasen."""
 
+async def mqtt_publish_data(data: list, client: MQTTClient):
+    """Takes sensordata and publishes it to MQTT topic. Simulating the sensor device sending."""
+
+    byte_string = json.dumps(data).encode('utf-8')
+    message = await client.publish(MQTT_TOPIC_SENSORDATA, byte_string)
+
+    print(message)
+    print("[MQTT Client] Message published")
+
+
+def generate_test_data():
+    """Funktion der genererer testdata og returnerer det som liste."""
+
+    # Generer testdata
+    temperature = round(random.uniform(15.0, 25.0), 2)  # Temperatur mellem 15.0 og 30.0 grader Celsius
+    humidity = round(random.uniform(30.0, 90.0), 2)      # Luftfugtighed mellem 30% og 90%
+    loudness = round(random.uniform(20.0, 50.0), 2)     # Støjniveau mellem 30 og 100 dB
+    light_level = round(random.uniform(0.0, 200.0), 2) # Lysniveau mellem 100 og 1000 lux
+
+    return [temperature, humidity, loudness, light_level]
+
+
+async def publish_testdata_loop(delay: int, client: MQTTClient):
+    """Kører løkke der genererer og publisher testdata med delay"""
     while True:
-        # Generer testdata
-        temperature = round(random.uniform(15.0, 25.0), 2)  # Temperatur mellem 15.0 og 30.0 grader Celsius
-        humidity = round(random.uniform(30.0, 90.0), 2)      # Luftfugtighed mellem 30% og 90%
-        loudness = round(random.uniform(20.0, 50.0), 2)     # Støjniveau mellem 30 og 100 dB
-        light_level = round(random.uniform(0.0, 200.0), 2) # Lysniveau mellem 100 og 1000 lux
-
-        # Indsæt testdata i databasen
-        insert_data_into_database(temperature, humidity, loudness, light_level)
-
-        print(f"[System] Testdata blev indsat i databasen.")
-        await asyncio.sleep(delay)
+        await mqtt_publish_data(generate_test_data(), client)
+        await asyncio.sleep(10)
 
 
 def fetch_sensor_data():
@@ -274,7 +296,7 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
 async def on_connect(client: MQTTClient):
     print("[MQTT Client] Forbundet til MQTT broker")
     # Abonnerer på emnet, når forbindelsen er oprettet
-    await client.subscribe([(MQTT_TOPIC_SENSORDATA, 1)])
+    await client.subscribe([(MQTT_TOPIC_SENSORDATA, 0)])
     print(f"[MQTT Client] Abonneret på emnet: {MQTT_TOPIC_SENSORDATA}")
 
 
@@ -286,20 +308,20 @@ async def on_message(client: MQTTClient):
             message = await client.deliver_message()
             packet = message.publish_packet
 
+            print(f"[MQTT Client] Received: {packet.payload.data.decode()}")
+
             # Filtrér beskeder efter emne
             if packet.variable_header.topic_name == MQTT_TOPIC_SENSORDATA:
                 byte_string = packet.payload.data
                 decoded_string = byte_string.decode("utf-8")
-                print(f"{packet.variable_header.topic_name}: {decoded_string}")
+                print(f"[MQTT Client] {packet.variable_header.topic_name}: {decoded_string}")
 
     except Exception as e:
         print(f"[MQTT Client] Fejl ved modtagelse af besked: {e}")
 
 
 # Starter MQTT-klienten og binder callbacks
-async def start_mqtt_client():
-    client = MQTTClient()  # Opretter klienten
-
+async def start_mqtt_client(client: MQTTClient):
     try:
         print("[MQTT Client] Forbinder til broker...")
         await client.connect(MQTT_BROKER_CONNECT_ADDRESS)  # Forbind til broker
@@ -681,17 +703,21 @@ async def main():
         print("[System] Starter MQTT-broker...")
         tasks.append(asyncio.create_task(start_broker()))
 
-    # Start datagenerator
-    if GENERATE_TEST_DATA:
-        print("[System] Starter test-datagenerator...")
-        tasks.append(asyncio.create_task(generate_test_data(10)))
-
     # Start MQTT-klient
     if START_MQTT_CLIENT:
         print("[System] Venter 4 sekunder med at starte MQTT-klient...")
         await asyncio.sleep(4)  # Vent 4 sekunder før klienten starter
         print("[System] Starter MQTT-klient...")
-        tasks.append(asyncio.create_task(start_mqtt_client()))
+        tasks.append(asyncio.create_task(start_mqtt_client(mqtt_client)))
+
+    # Start datagenerator
+    if GENERATE_TEST_DATA:
+        print("[System] Venter 4 sekunder med at generere testdata...")
+        await asyncio.sleep(4)  # Vent 4 sekunder før testdata begynder at generere
+        print("[System] Starter test-datagenerator...")
+        #tasks.append(asyncio.create_task(generate_test_data(10)))
+        tasks.append(publish_testdata_loop(10, mqtt_client))
+        
 
     # Afvent alle opgaver
     print("[System] Alle opgaver er startet. Afventer...")
