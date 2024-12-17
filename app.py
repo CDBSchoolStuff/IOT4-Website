@@ -82,43 +82,53 @@ finally:
 
 
 
-async def generate_test_data(num_records, delay):
-    """Funktion der genererer placeholder data og indsætter det i databasen."""
+def get_current_timestamp():
+    """Returnerer den aktuelle tid som String"""
+    return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    while True:
+
+def insert_data_into_database(temperature, humidity, loudness, light_level):
         try:
             # Forbind til SQLite-databasen
             db = sqlite3.connect(DATABASE_PATH)
             cursor = db.cursor()
+            
+            timestamp = get_current_timestamp() # Aktuel tid
 
-            # Generer og indsæt testdata
-            for _ in range(num_records):
-                temperature = round(random.uniform(15.0, 25.0), 2)  # Temperatur mellem 15.0 og 30.0 grader Celsius
-                humidity = round(random.uniform(30.0, 90.0), 2)      # Luftfugtighed mellem 30% og 90%
-                loudness = round(random.uniform(20.0, 50.0), 2)     # Støjniveau mellem 30 og 100 dB
-                light_level = round(random.uniform(0.0, 200.0), 2) # Lysniveau mellem 100 og 1000 lux
-                
-                timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # Aktuel tid
-
-                # Sæt data ind i tabellen
-                sql_insert_into_table: sourcetypes.sql = """
-                    INSERT INTO SensorData (timestamp, temperature, humidity, loudness, light_level)
-                    VALUES (?, ?, ?, ?, ?)
-                """
-                cursor.execute(sql_insert_into_table, (timestamp, temperature, humidity, loudness, light_level))
+            # Sæt data ind i tabellen
+            sql_insert_into_table: sourcetypes.sql = """
+                INSERT INTO SensorData (timestamp, temperature, humidity, loudness, light_level)
+                VALUES (?, ?, ?, ?, ?)
+            """
+            cursor.execute(sql_insert_into_table, (timestamp, temperature, humidity, loudness, light_level))
 
             # Gem ændringer i databasen
             db.commit()
-            print(f"{num_records} testdata bliver indsat.")
 
         except Exception as ex:
-            print(f"Der opstår en fejl: {ex}")
+            print(f"[System] Der opstod en fejl: {ex}")
 
         finally:
             # Sørg for at databasen bliver lukket
             if "db" in locals():
                 db.close()
-            await asyncio.sleep(delay)
+
+
+async def generate_test_data(delay):
+    """Funktion der genererer testdata og indsætter det i databasen."""
+
+    while True:
+        # Generer testdata
+        temperature = round(random.uniform(15.0, 25.0), 2)  # Temperatur mellem 15.0 og 30.0 grader Celsius
+        humidity = round(random.uniform(30.0, 90.0), 2)      # Luftfugtighed mellem 30% og 90%
+        loudness = round(random.uniform(20.0, 50.0), 2)     # Støjniveau mellem 30 og 100 dB
+        light_level = round(random.uniform(0.0, 200.0), 2) # Lysniveau mellem 100 og 1000 lux
+
+        # Indsæt testdata i databasen
+        insert_data_into_database(temperature, humidity, loudness, light_level)
+
+        print(f"[System] Testdata blev indsat i databasen.")
+        await asyncio.sleep(delay)
 
 
 def fetch_sensor_data():
@@ -427,7 +437,7 @@ def determine_color_class(value, min, max):
 def get_time_since_data():
     # Hent data fra databasen
     latest_timestamp = get_latest_datapoint("timestamp")
-    current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    current_time = get_current_timestamp()
 
     timestamp1 = datetime.datetime.strptime(latest_timestamp, '%Y-%m-%d %H:%M:%S')
     timestamp2 = datetime.datetime.strptime(current_time, '%Y-%m-%d %H:%M:%S')
@@ -458,7 +468,7 @@ def welcome_page():
     loudness_color = determine_color_class(latest_loudness, MIN_LOUDNESS, MAX_LOUDNESS)
 
     welcome_content: sourcetypes.html = f"""
-        <h2>Velkommen, {username}!</h2>
+        <h2>Velkommen, {username.capitalize()}!</h2>
         <p>Du er nu logget ind og kan dermed se alle data omkring forholdende i dit soveværelse!</p>
 
     
@@ -674,7 +684,7 @@ async def main():
     # Start datagenerator
     if GENERATE_TEST_DATA:
         print("[System] Starter test-datagenerator...")
-        tasks.append(asyncio.create_task(generate_test_data(1, 10)))
+        tasks.append(asyncio.create_task(generate_test_data(10)))
 
     # Start MQTT-klient
     if START_MQTT_CLIENT:
