@@ -1,5 +1,5 @@
 # Kør dette script for at generere nye kryptografiske nøgler.
-# VIGTIG BEMÆRKNING: Koden fra denne fil kommer 100% fra ChatGPT og er som sådan ikke en del af den støre løsning.
+# VIGTIG BEMÆRKNING: Koden fra denne fil kommer 100% fra ChatGPT og er som sådan ikke en del af den størere løsning.
 
 import os
 from cryptography.hazmat.primitives.asymmetric import rsa

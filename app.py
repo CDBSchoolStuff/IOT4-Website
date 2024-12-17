@@ -289,8 +289,6 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
 ####################################################################################################
 # Encryption/Decryption
 
-# https://www.geeksforgeeks.org/how-to-encrypt-and-decrypt-strings-in-python/
-
 def load_public_key_from_file(path_to_public_key):
     """Indlæs public_key fra fil."""
     with open(path_to_public_key, "rb") as key_file:
@@ -306,7 +304,7 @@ def load_private_key_from_file(path_to_private_key, password=None):
     with open(path_to_private_key, "rb") as key_file:
         private_key = serialization.load_pem_private_key(
             key_file.read(),
-            password=password,  # Pass `None` if the private key is not encrypted
+            password=password,  # Sker ikke noget hvis der ikke er sat noget password
             backend=default_backend()
         )
     return private_key
@@ -336,7 +334,7 @@ def decrypt_message(encrypted_message: bytearray, password=None):
     # Indlæs private_key
     private_key = load_private_key_from_file(PRIVATE_KEY_PATH, password)
 
-    # Convert bytearray to bytes if necessary
+    # Konverter bytearray til bytes hvis nødvendigt
     if isinstance(encrypted_message, bytearray):
         encrypted_message = bytes(encrypted_message)
 
