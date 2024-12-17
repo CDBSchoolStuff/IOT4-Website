@@ -10,14 +10,13 @@ import random, datetime, datetime, io, base64
 import matplotlib.pyplot as plt
 
 # General imports
-import os
 from time import sleep
 from threading import Thread
+import asyncio
 
 # MQTT
-from credentials import credentials
-import asyncio
 from amqtt.broker import Broker
+from amqtt.client import MQTTClient, ConnectException
 
 ####################################################################################################
 # Configuration
@@ -34,7 +33,7 @@ REFRESH_DELAY = 10 # Hvor ofte siden skal refreshes
 
 DATABASE_PATH = 'sensordata.db'
 
-
+BROKER_ADDRESS = "mqtt://localhost"  # Brug "mqtt://localhost" hvis lokal
 MQTT_TOPIC_SENSORDATA = 'mqtt_sensordata'
 
 
@@ -258,50 +257,53 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
 ####################################################################################################
 # MQTT Client
 
-# https://github.com/CDBSchoolStuff/IOT3-Point-of-Ordering/blob/83e08c390f011f64f7b18a91e050c7afc1fb731a/app.py#L34C1-L101C61
-# https://pypi.org/project/paho-mqtt/
 
-import paho.mqtt.client as mqtt
-
-mqtt_server = credentials['mqtt_server']
-
-
-# The callback for when the client receives a CONNACK response from the server.
-def on_connect(client, userdata, flags, reason_code, properties):
-    print(f"[MQTT Client] Connected with result code {reason_code}")
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    client.subscribe(MQTT_TOPIC_SENSORDATA)
-
-# The callback for when a PUBLISH message is received from the server.
-def on_message(client, userdata, msg):
-
-    if msg.topic == MQTT_TOPIC_SENSORDATA:
-        byte_string = msg.payload
-        decoded_string = byte_string.decode("utf-8")
-        
-        print(f"{msg.topic} {decoded_string}")
+# Callback: Håndterer forbindelsen til broker
+async def on_connect(client: MQTTClient):
+    print("[MQTT Client] Forbundet til MQTT broker")
+    # Abonnerer på emnet, når forbindelsen er oprettet
+    await client.subscribe([(MQTT_TOPIC_SENSORDATA, 1)])
+    print(f"[MQTT Client] Abonneret på emnet: {MQTT_TOPIC_SENSORDATA}")
 
 
-async def start_mqtt_client():
+# Callback: Håndterer modtagne beskeder
+async def on_message(client: MQTTClient):
     try:
-        mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        mqttc.on_connect = on_connect
-        mqttc.on_message = on_message
-        mqttc.connect(mqtt_server)
+        while True:
+            # Vent på en ny besked fra broker
+            message = await client.deliver_message()
+            packet = message.publish_packet
 
-        # Blocking call that processes network traffic, dispatches callbacks and
-        # handles reconnecting.
-        # Other loop*() functions are available that give a threaded interface and a
-        # manual interface.
-        # mqttc.loop_forever()
-        mqttc.loop_start()
+            # Filtrér beskeder efter emne
+            if packet.variable_header.topic_name == MQTT_TOPIC_SENSORDATA:
+                byte_string = packet.payload.data
+                decoded_string = byte_string.decode("utf-8")
+                print(f"{packet.variable_header.topic_name}: {decoded_string}")
 
     except Exception as e:
-        print(f"[MQTT Client] {e}")
-        print("[MQTT Client] Failed to connect to MQTT broker. Continuing...")
+        print(f"[MQTT Client] Fejl ved modtagelse af besked: {e}")
 
 
+# Starter MQTT-klienten og binder callbacks
+async def start_mqtt_client():
+    client = MQTTClient()  # Opretter klienten
+
+    try:
+        print("[MQTT Client] Forbinder til broker...")
+        await client.connect(BROKER_ADDRESS)  # Forbind til broker
+
+        # Simulerer callbacks ved at kalde vores funktioner manuelt
+        await on_connect(client)  # Kalder on_connect når der forbindes til broker
+        await on_message(client)  # Starter on_message loop (venter på beskeder)
+
+    except ConnectException as ce:
+        print(f"[MQTT Client] Kunne ikke forbinde til MQTT broker: {ce}")
+    except Exception as e:
+        print(f"[MQTT Client] En fejl opstod: {e}")
+    finally:
+        # Sørg for at disconnecte, hvis noget går galt
+        await client.disconnect()
+        print("[MQTT Client] Forbindelsen er lukket.")
 
 
 ####################################################################################################
@@ -663,17 +665,25 @@ async def main():
     """Executes concurrent tasks."""
     tasks = []
 
+    # Start MQTT-broker
     if START_MQTT_BROKER:
+        print("[System] Starter MQTT-broker...")
         tasks.append(asyncio.create_task(start_broker()))
-    
+
+    # Start datagenerator
     if GENERATE_TEST_DATA:
+        print("[System] Starter test-datagenerator...")
         tasks.append(asyncio.create_task(generate_test_data(1, 10)))
-        
+
+    # Start MQTT-klient
     if START_MQTT_CLIENT:
-        await asyncio.sleep(4)  # Vent med at starte MQTT client
+        print("[System] Venter 4 sekunder med at starte MQTT-klient...")
+        await asyncio.sleep(4)  # Vent 4 sekunder før klienten starter
+        print("[System] Starter MQTT-klient...")
         tasks.append(asyncio.create_task(start_mqtt_client()))
 
-    # Await all tasks
+    # Afvent alle opgaver
+    print("[System] Alle opgaver er startet. Afventer...")
     await asyncio.gather(*tasks)
 
 
