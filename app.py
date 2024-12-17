@@ -16,6 +16,11 @@ import asyncio
 import logging
 import json
 
+# Encryption
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.backends import default_backend
+
 # MQTT
 from amqtt.broker import Broker
 from amqtt.client import MQTTClient, ConnectException, ClientException
@@ -26,6 +31,10 @@ from amqtt.mqtt.constants import QOS_1, QOS_2
 
 logger = logging.getLogger(__name__)
 mqtt_client = MQTTClient()  # Opretter klienten
+
+
+PUBLIC_KEY_PATH = "certs/public_key.pem"
+PRIVATE_KEY_PATH = "certs/private_key.pem"
 
 USE_HTTPS = False
 GENERATE_TEST_DATA = True
@@ -277,18 +286,87 @@ def plot(selected_metrics=None, title=None, lower_threshold=None, upper_threshol
 
 
 
+####################################################################################################
+# Encryption/Decryption
+
+# https://www.geeksforgeeks.org/how-to-encrypt-and-decrypt-strings-in-python/
+
+def load_public_key_from_file(path_to_public_key):
+    """Indlæs public_key fra fil."""
+    with open(path_to_public_key, "rb") as key_file:
+        public_key = serialization.load_pem_public_key(
+            key_file.read(),
+            backend=default_backend()
+        )
+    return public_key
+
+
+def load_private_key_from_file(path_to_private_key, password=None):
+    """Indlæs private_key fra fil."""
+    with open(path_to_private_key, "rb") as key_file:
+        private_key = serialization.load_pem_private_key(
+            key_file.read(),
+            password=password,  # Pass `None` if the private key is not encrypted
+            backend=default_backend()
+        )
+    return private_key
+
+
+def encrypt_message(byte_string_message):
+    
+    # Indlæs public_key
+    public_key = load_public_key_from_file(PUBLIC_KEY_PATH)
+
+    # Encrypter besked
+    encrypted_message = public_key.encrypt(
+        byte_string_message,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+            )
+        )
+    print(f"[System] Encrypted Message: {encrypted_message}")
+    return encrypted_message
+    
+    
+
+def decrypt_message(encrypted_message: bytearray, password=None):
+    
+    # Indlæs private_key
+    private_key = load_private_key_from_file(PRIVATE_KEY_PATH, password)
+
+    # Convert bytearray to bytes if necessary
+    if isinstance(encrypted_message, bytearray):
+        encrypted_message = bytes(encrypted_message)
+
+    decrypted_message = private_key.decrypt(
+        encrypted_message,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return decrypted_message
 
 ####################################################################################################
 # MQTT Client
 
 # https://amqtt.readthedocs.io/en/latest/references/mqttclient.html
 
+def make_byte_string(input):
+    return json.dumps(input).encode('utf-8')
+
 
 async def mqtt_publish_data(data: list, client: MQTTClient):
     """Takes sensordata and publishes it to MQTT topic. Simulating the sensor device sending."""
 
-    byte_string = json.dumps(data).encode('utf-8')
-    message = await client.publish(MQTT_TOPIC_SENSORDATA, byte_string)
+    byte_string = make_byte_string(data)
+
+    encrypted_message = encrypt_message(byte_string)
+
+    message = await client.publish(MQTT_TOPIC_SENSORDATA, encrypted_message)
 
     print(message)
     print("[MQTT Client] Message published")
@@ -296,7 +374,7 @@ async def mqtt_publish_data(data: list, client: MQTTClient):
 
 # Callback: Håndterer modtagne beskeder
 async def on_message(client: MQTTClient):
-    try:
+#    try:
         print("[MQTT Client] Venter på beskeder...")  # Venter på beskeder fra broker
         while True:
             # Hent næste besked
@@ -305,12 +383,17 @@ async def on_message(client: MQTTClient):
 
             # Dekod beskedens indhold
             topic = packet.variable_header.topic_name
-            payload = packet.payload.data.decode("utf-8")
+            payload = packet.payload.data
 
             # Filtrér beskeder for den rigtige topic
             if topic == MQTT_TOPIC_SENSORDATA:
+                
+                # Dekrypter payload
+                decrypted_payload = decrypt_message(payload)
+                decrypted_payload_str = decrypted_payload.decode("utf-8")
+
                 # Konverter payload string tilbage til en liste.
-                converted_list = eval(payload)
+                converted_list = eval(decrypted_payload_str)
 
                 print(f"[MQTT Client] Modtaget besked på topic '{topic}': {converted_list}")
 
@@ -318,8 +401,8 @@ async def on_message(client: MQTTClient):
                 insert_data_into_database(converted_list)
                 print("[MQTT Client] Sensordata indsat i databasen.")
 
-    except Exception as e:
-        print(f"[MQTT Client] Fejl ved modtagelse af besked: {e}")
+#    except Exception as e:
+#        print(f"[MQTT Client] Fejl ved modtagelse af besked: {e}")
 
 
 # Funktion: Starter MQTT-klienten og håndterer forbindelsen
