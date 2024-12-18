@@ -57,7 +57,7 @@ https://amqtt.readthedocs.io/en/latest/references/mqttclient.html
 
 https://amqtt.readthedocs.io/en/latest/references/broker.html
 
-**MQTT TLS:**
+**MQTT TLS (Dropped):**
 [Stack Overflow: How to use ssl/tls in paho mqtt using python? I got certificate verify failed](https://stackoverflow.com/questions/51942821/how-to-use-ssl-tls-in-paho-mqtt-using-python-i-got-certificate-verify-failed)
 
 **Cryptography:**

@@ -16,7 +16,7 @@ import asyncio
 import logging
 import json
 
-# Encryption
+# Encryption/Decryption
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
@@ -41,14 +41,14 @@ GENERATE_TEST_DATA = True
 START_MQTT_BROKER = True
 START_MQTT_CLIENT = True
 
-HOST_ADDRESS = "localhost"
+HOST_ADDRESS = "0.0.0.0"
 HOST_PORT = 8080
 
 REFRESH_DELAY = 10 # Hvor ofte siden skal refreshes
 
 DATABASE_PATH = 'sensordata.db'
 
-MQTT_BROKER_HOST_ADDRESS = "127.0.0.1" # Adresse som MQTT brokeren bliver hostet på
+MQTT_BROKER_HOST_ADDRESS = "0.0.0.0" # Adresse som MQTT brokeren bliver hostet på
 MQTT_BROKER_HOST_PORT = "1883"
 MQTT_BROKER_CONNECT_ADDRESS = "mqtt://localhost"  # Adresse som MQTT klienten skal forbinde til (Brug "mqtt://localhost" hvis lokal)
 MQTT_TOPIC_SENSORDATA = 'mqtt_sensordata'
