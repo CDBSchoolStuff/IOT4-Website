@@ -47,14 +47,14 @@ GENERATE_TEST_DATA = True
 START_MQTT_BROKER = True
 START_MQTT_CLIENT = True
 
-HOST_ADDRESS = "0.0.0.0"
+HOST_ADDRESS = "127.0.0.1"
 HOST_PORT = 8080
 
 REFRESH_DELAY = 10 # Hvor ofte siden skal refreshes
 
 DATABASE_PATH = 'sensordata.db'
 
-MQTT_BROKER_HOST_ADDRESS = "0.0.0.0" # Adresse som MQTT brokeren bliver hostet på
+MQTT_BROKER_HOST_ADDRESS = "0.0.0.0" # Adresse som MQTT brokeren bliver hostet på (0.0.0.0 binder sig til alle eksterne adresser)
 MQTT_BROKER_HOST_PORT = "1883"
 MQTT_BROKER_CONNECT_ADDRESS = "mqtt://localhost"  # Adresse som MQTT klienten skal forbinde til (Brug "mqtt://localhost" hvis lokal)
 MQTT_TOPIC_SENSORDATA = 'mqtt_sensordata'
