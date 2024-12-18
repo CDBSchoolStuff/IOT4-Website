@@ -15,6 +15,7 @@ from threading import Thread
 import asyncio
 import logging
 import json
+import os
 
 # Encryption/Decryption
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -32,9 +33,14 @@ from amqtt.mqtt.constants import QOS_1, QOS_2
 logger = logging.getLogger(__name__)
 mqtt_client = MQTTClient()  # Opretter klienten
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+print(f"[System] script_dir={script_dir}")
 
-PUBLIC_KEY_PATH = "certs/public_key.pem"
-PRIVATE_KEY_PATH = "certs/private_key.pem"
+PUBLIC_KEY_PATH = os.path.join(script_dir, "certs", "public_key.pem")
+PRIVATE_KEY_PATH = os.path.join(script_dir, "certs", "private_key.pem")
+
+print(f"[System] PUBLIC_KEY_PATH={PUBLIC_KEY_PATH}")
+print(f"[System] PRIVATE_KEY_PATH={PRIVATE_KEY_PATH}")
 
 USE_HTTPS = False
 GENERATE_TEST_DATA = True
