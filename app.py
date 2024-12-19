@@ -43,9 +43,10 @@ print(f"[System] PUBLIC_KEY_PATH={PUBLIC_KEY_PATH}")
 print(f"[System] PRIVATE_KEY_PATH={PRIVATE_KEY_PATH}")
 
 USE_HTTPS = False
-GENERATE_TEST_DATA = True
+GENERATE_TEST_DATA = False
 START_MQTT_BROKER = True
 START_MQTT_CLIENT = True
+USE_CRYPTOGRAPHY = False
 
 HOST_ADDRESS = "127.0.0.1"
 HOST_PORT = 8080
@@ -368,9 +369,10 @@ async def mqtt_publish_data(data: list, client: MQTTClient):
 
     byte_string = make_byte_string(data)
 
-    encrypted_message = encrypt_message(byte_string)
-
-    message = await client.publish(MQTT_TOPIC_SENSORDATA, encrypted_message)
+    if USE_CRYPTOGRAPHY:
+        byte_string = encrypt_message(byte_string)
+    
+    message = await client.publish(MQTT_TOPIC_SENSORDATA, byte_string)
 
     print(message)
     print("[MQTT Client] Message published")
@@ -378,7 +380,7 @@ async def mqtt_publish_data(data: list, client: MQTTClient):
 
 # Callback: Håndterer modtagne beskeder
 async def on_message(client: MQTTClient):
-#    try:
+ #   try:
         print("[MQTT Client] Venter på beskeder...")  # Venter på beskeder fra broker
         while True:
             # Hent næste besked
@@ -391,22 +393,27 @@ async def on_message(client: MQTTClient):
 
             # Filtrér beskeder for den rigtige topic
             if topic == MQTT_TOPIC_SENSORDATA:
-                
-                # Dekrypter payload
-                decrypted_payload = decrypt_message(payload)
-                decrypted_payload_str = decrypted_payload.decode("utf-8")
+                try:
+                    if USE_CRYPTOGRAPHY:
+                        # Dekrypter payload
+                        decrypted_payload = decrypt_message(payload)
+                        payload_str = decrypted_payload.decode("utf-8")
+                    else:
+                        payload_str = payload.decode("utf-8")
+                    
+                    # Konverter payload string tilbage til en liste.
+                    converted_list = eval(payload_str)
 
-                # Konverter payload string tilbage til en liste.
-                converted_list = eval(decrypted_payload_str)
+                    print(f"[MQTT Client] Modtaget besked på topic '{topic}': {converted_list}")
 
-                print(f"[MQTT Client] Modtaget besked på topic '{topic}': {converted_list}")
+                    # Indsæt modtaget data i databasen.
+                    insert_data_into_database(converted_list)
+                    print("[MQTT Client] Sensordata indsat i databasen.")
+                except Exception as e:
+                    print(f"[MQTT Client] Fejl ved behandling af payload: {e}")
 
-                # Indsæt modtaget data i databasen.
-                insert_data_into_database(converted_list)
-                print("[MQTT Client] Sensordata indsat i databasen.")
-
-#    except Exception as e:
-#        print(f"[MQTT Client] Fejl ved modtagelse af besked: {e}")
+    # except Exception as e:
+    #     print(f"[MQTT Client] Fejl ved modtagelse af besked: {e}")
 
 
 # Funktion: Starter MQTT-klienten og håndterer forbindelsen
@@ -845,4 +852,5 @@ if __name__ == '__main__':
         asyncio.run(main())
         asyncio.get_event_loop().run_forever()
     except KeyboardInterrupt:
+        asyncio.get_event_loop().stop()
         print("\nProgram terminated.")
