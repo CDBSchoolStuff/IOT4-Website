@@ -11,7 +11,7 @@ def install_requirements():
     if os.path.exists(requirements_file):
         print(f"Found {requirements_file}. Installing dependencies...")
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_file])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--disable-pip-version-check", "-r", requirements_file])
         except subprocess.CalledProcessError as e:
             print(f"Error occurred while installing dependencies: {e}")
             sys.exit(1)
