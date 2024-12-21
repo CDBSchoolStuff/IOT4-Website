@@ -134,7 +134,7 @@ try:
     # Gem ændringerne og luk databasen
     db.commit()
 
-    print("Database og tabel er oprettet succesfuldt!")
+    print("[Database] Database og tabel er oprettet succesfuldt!")
 
 except Exception as ex:
     print(ex)
@@ -172,7 +172,7 @@ def insert_data_into_database(data: list):
             db.commit()
 
         except Exception as ex:
-            print(f"[System] Der opstod en fejl: {ex}")
+            print(f"[Database] Der opstod en fejl: {ex}")
 
         finally:
             # Sørg for at databasen bliver lukket
@@ -228,7 +228,7 @@ def fetch_sensor_data():
         return timestamps, temperatures, humidities, loudness, light_levels
 
     except Exception as ex:
-        print(f"Der opstår en fejl: {ex}")
+        print(f"[Database] Der opstår en fejl: {ex}")
         return [], [], [], [], []
 
 def get_latest_datapoint(data_type):
@@ -285,11 +285,11 @@ def create_database_backup(db_path, backup_dir):
 
         # Kopier databasen til backup-stien
         shutil.copy(db_path, backup_path)
-        print(f"[System] Backup lavet: '{backup_path}'")
+        print(f"[Backup] Backup lavet: '{backup_path}'")
 
         return backup_path
     except Exception as e:
-        print(f"[Error] Der skete en fejl under backup: {e}")
+        print(f"[Backup] Der skete en fejl under backup: {e}")
         raise
 
 
@@ -308,7 +308,7 @@ def upload_to_ftp(ftp_host, ftp_user, ftp_password, file_path, remote_dir):
         # Forbind til FTP-serveren
         ftp = FTP(ftp_host)
         ftp.login(user=ftp_user, passwd=ftp_password)
-        print(f"[System] Tilsluttet FTP-serveren: {ftp_host}")
+        print(f"[FTP] Tilsluttet FTP-serveren: {ftp_host}")
 
         # Skift til den fjernmappe, hvis den er angivet
         if remote_dir:
@@ -317,13 +317,13 @@ def upload_to_ftp(ftp_host, ftp_user, ftp_password, file_path, remote_dir):
         # Åbn filen og upload den
         with open(file_path, 'rb') as file:
             ftp.storbinary(f'STOR {os.path.basename(file_path)}', file)
-            print(f"Fil uploadet til '{remote_dir}/{os.path.basename(file_path)}'.")
+            print(f"[FTP] Fil uploadet til '{remote_dir}/{os.path.basename(file_path)}'.")
 
         # Luk forbindelsen
         ftp.quit()
-        print("[System] FTP-forbindelsen er lukket.")
+        print("[FTP] FTP-forbindelsen er lukket.")
     except Exception as e:
-        print(f"[Error] Der skete en fejl under upload: {e}")
+        print(f"[FTP] Der skete en fejl under upload: {e}")
         raise
 
 
@@ -442,7 +442,7 @@ def encrypt_message(byte_string_message):
             label=None
             )
         )
-    print(f"[System] Encrypted Message: {encrypted_message}")
+    print(f"[Crypto] Encrypted Message: {encrypted_message}")
     return encrypted_message
     
     
@@ -551,21 +551,6 @@ async def start_mqtt_client(client: MQTTClient):
         print("[MQTT Client] Forbindelsen lukket.")
 
 
-
-# async def start_mqtt_client(client: MQTTClient):
-#     await client.connect(MQTT_BROKER_CONNECT_ADDRESS)
-#     await client.subscribe([(MQTT_TOPIC_SENSORDATA, QOS_1)])
-#     try:
-#         while True:
-#             message = await client.deliver_message()
-#             packet = message.publish_packet
-#             print("%s => %s" % (packet.variable_header.topic_name, str(packet.payload.data)))
-#     except ClientException as ce:
-#         logger.error(f"[MQTT Client] Client exception: {ce}")
-#     finally:
-#         # Sørg for at disconnecte, når vi er færdige
-#         await client.disconnect()
-#         print("[MQTT Client] Forbindelsen lukket.")
 
 
 ####################################################################################################
