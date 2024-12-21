@@ -1,7 +1,7 @@
 sensordata.db
 credentials.py
 certs/
-
+backups/
 
 # ----------------------------- #
 # Standard python ignores below #

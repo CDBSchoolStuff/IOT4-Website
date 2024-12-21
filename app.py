@@ -1,3 +1,30 @@
+####################################################################################################
+# Install requirements
+
+import subprocess
+import sys
+import os
+
+def install_requirements():
+    requirements_file = 'requirements.txt'
+    
+    if os.path.exists(requirements_file):
+        print(f"Found {requirements_file}. Installing dependencies...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_file])
+        except subprocess.CalledProcessError as e:
+            print(f"Error occurred while installing dependencies: {e}")
+            sys.exit(1)
+    else:
+        print(f"{requirements_file} not found! Make sure the file exists in the same directory.")
+        sys.exit(1)
+
+install_requirements()
+
+
+####################################################################################################
+# Imports
+
 # Imports for Bottle
 from bottle import Bottle, run, request, template, auth_basic, HTTPResponse, response
 import bcrypt, sourcetypes
@@ -10,12 +37,15 @@ import random, datetime, datetime, io, base64
 import matplotlib.pyplot as plt
 
 # General imports
-from time import sleep
 from threading import Thread
 import asyncio
 import logging
 import json
-import os
+
+
+# Backup
+from ftplib import FTP
+import shutil
 
 # Encryption/Decryption
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -47,13 +77,14 @@ GENERATE_TEST_DATA = False
 START_MQTT_BROKER = True
 START_MQTT_CLIENT = True
 USE_CRYPTOGRAPHY = False
+DATABASE_BACKUP = True
 
 HOST_ADDRESS = "127.0.0.1"
 HOST_PORT = 8080
 
 REFRESH_DELAY = 10 # Hvor ofte siden skal refreshes
 
-DATABASE_PATH = 'sensordata.db'
+DATABASE_PATH = os.path.join(script_dir, "sensordata.db")
 
 MQTT_BROKER_HOST_ADDRESS = "0.0.0.0" # Adresse som MQTT brokeren bliver hostet på (0.0.0.0 binder sig til alle eksterne adresser)
 MQTT_BROKER_HOST_PORT = "1883"
@@ -65,6 +96,17 @@ MIN_TEMPERATURE, MAX_TEMPERATURE = 17, 19
 MIN_HUMIDITY, MAX_HUMIDITY = 40, 60
 MIN_LIGHT_LEVEL, MAX_LIGHT_LEVEL = 0.1, 10
 MIN_LOUDNESS, MAX_LOUDNESS = 0.1, 30
+
+
+# Backup constants
+FTP_HOST = "localhost"
+FTP_USER = "iot4"
+FTP_PASSWORD = "awesome123"
+BACKUP_DIR = os.path.join(script_dir, "backups")
+REMOTE_DIR = "/backups"
+DATABASE_BACKUP_DELAY = 60
+
+
 
 
 ####################################################################################################
@@ -214,6 +256,76 @@ def get_latest_datapoint(data_type):
     else:
         # Hvis det er noget andet end de gyldige datatyper, brok dig
         raise ValueError(f"Ugyldig datatype: {data_type}. Vælg mellem 'timestamp', 'temperature', 'humidity', 'loudness', eller 'light_level'.")
+
+
+
+####################################################################################################
+# Database Backup and FTP sending
+
+def create_database_backup(db_path, backup_dir):
+    """
+    Laver en backup af SQLite-databasen.
+
+    Parametre:
+        db_path (str): Stien til SQLite-databasen.
+        backup_dir (str): Lokalt bibliotek hvor backup'en gemmes.
+
+    Returnerer:
+        str: Stien til den oprettede backup-fil.
+    """
+
+    try:
+        # Få dato og tidspunkt til backup-filnavnet
+        current_date = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        backup_filename = f"sensordata_backup_{current_date}.db"
+        backup_path = os.path.join(backup_dir, backup_filename)
+
+        # Sørg for at backup-biblioteket eksisterer, ellers lav det
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+
+        # Kopier databasen til backup-stien
+        shutil.copy(db_path, backup_path)
+        print(f"[System] Backup lavet: '{backup_path}'")
+
+        return backup_path
+    except Exception as e:
+        print(f"[Error] Der skete en fejl under backup: {e}")
+        raise
+
+
+def upload_to_ftp(ftp_host, ftp_user, ftp_password, file_path, remote_dir):
+    """
+    Uploader en fil til en FTP-server.
+
+    Parametre:
+        ftp_host (str): FTP-serverens adresse.
+        ftp_user (str): Brugernavnet til FTP-serveren.
+        ftp_password (str): Adgangskoden til FTP-serveren.
+        file_path (str): Stien til filen der skal uploades.
+        remote_dir (str): Mappen på FTP-serveren hvor filen uploades.
+    """
+    try:
+        # Forbind til FTP-serveren
+        ftp = FTP(ftp_host)
+        ftp.login(user=ftp_user, passwd=ftp_password)
+        print(f"[System] Tilsluttet FTP-serveren: {ftp_host}")
+
+        # Skift til den fjernmappe, hvis den er angivet
+        if remote_dir:
+            ftp.cwd(remote_dir)
+
+        # Åbn filen og upload den
+        with open(file_path, 'rb') as file:
+            ftp.storbinary(f'STOR {os.path.basename(file_path)}', file)
+            print(f"Fil uploadet til '{remote_dir}/{os.path.basename(file_path)}'.")
+
+        # Luk forbindelsen
+        ftp.quit()
+        print("[System] FTP-forbindelsen er lukket.")
+    except Exception as e:
+        print(f"[Error] Der skete en fejl under upload: {e}")
+        raise
 
 
 ####################################################################################################
@@ -813,6 +925,13 @@ async def mqtt_broker_coro():
 ####################################################################################################
 # Main
 
+
+async def backup_and_upload_db(delay):
+    while True:
+        backup_file = create_database_backup(DATABASE_PATH, BACKUP_DIR)
+        upload_to_ftp(FTP_HOST, FTP_USER, FTP_PASSWORD, backup_file, REMOTE_DIR)
+        await asyncio.sleep(delay)
+
 async def main():
     """Executes concurrent tasks."""
     tasks = []
@@ -836,6 +955,8 @@ async def main():
         print("[System] Starter test-datagenerator...")
         tasks.append(asyncio.create_task(publish_testdata_loop(10, mqtt_client)))
         
+    if DATABASE_BACKUP:
+        tasks.append(asyncio.create_task(backup_and_upload_db(DATABASE_BACKUP_DELAY)))
 
     # Afvent alle opgaver
     print("[System] Alle opgaver er startet. Afventer...")
