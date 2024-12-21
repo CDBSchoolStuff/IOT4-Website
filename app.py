@@ -9,18 +9,17 @@ def install_requirements():
     requirements_file = 'requirements.txt'
     
     if os.path.exists(requirements_file):
-        print(f"Found {requirements_file}. Installing dependencies...")
+        print(f"Fandt {requirements_file}. Installerer depencencies...")
         try:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--disable-pip-version-check", "-r", requirements_file])
         except subprocess.CalledProcessError as e:
-            print(f"Error occurred while installing dependencies: {e}")
+            print(f"Der opstod en fejl under installationen af depencencies: {e}")
             sys.exit(1)
     else:
-        print(f"{requirements_file} not found! Make sure the file exists in the same directory.")
+        print(f"{requirements_file} blev ikke fundet! Sørg for, at filen ligger i samme mappe.")
         sys.exit(1)
 
 install_requirements()
-
 
 ####################################################################################################
 # Imports
